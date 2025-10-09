@@ -1,0 +1,14 @@
+:root {
+  --color-primary: #81020B;    
+  --color-accent: #F4D03F;    
+  --color-burgundy: #6B0000;
+  --color-bg: #FFFFFF;
+  --color-text-dark: #222222;
+  --color-text-light: #ffffff;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-bg);
+  color: var(--color-text-dark);
+}

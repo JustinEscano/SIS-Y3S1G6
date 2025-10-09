@@ -1,0 +1,106 @@
+.teacher-sidebar {
+  width: 250px;
+  background-color: #ffffff;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 100; 
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.1); 
+  border-right: 1px solid #e5e7eb;
+}
+
+.sidebar-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  text-align: center;
+}
+
+.sidebar-logo {
+  width: 70px;
+  height: auto;
+  margin-bottom: 10px;
+}
+
+.sidebar-school-info h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #81020b;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-school-info p {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.sidebar-nav {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  text-decoration: none;
+  color: #374151;
+  font-size: 15px;
+  transition: all 0.2s ease-in-out;
+  gap: 12px;
+  border-radius: 8px;
+  margin: 4px 10px;
+}
+
+.sidebar-nav a svg {
+  font-size: 16px;
+  color: #6b7280;
+  width: 18px;
+}
+
+.sidebar-nav a:hover {
+  background-color: #f9fafb;
+  color: #81020b;
+}
+
+.sidebar-nav a.active {
+  background-color: #fff5f5;
+  color: #81020b;
+  font-weight: 600;
+}
+
+.sidebar-nav a.active svg,
+.sidebar-nav a:hover svg {
+  color: #81020b;
+}
+
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: #81020b;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.logout-btn:hover {
+  opacity: 0.8;
+}

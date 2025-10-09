@@ -1,0 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Calibre:wght@400;500;700&display=swap'); 
+@import url('https://fonts.googleapis.com/css2?family=Arial&display=swap');
+
+:root {
+  --font-title: 'Cabin', sans-serif;
+  --font-subheading: 'Calibre', sans-serif;
+  --font-body: 'Arial', sans-serif;
+}
