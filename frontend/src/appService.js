@@ -1,34 +1,69 @@
-// src/AppService.ts
 import axios from "axios";
 
 const AppService = axios.create({
-  baseURL: "http://localhost:8000/api", // replace with your backend base URL
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL: "http://localhost:5000/api",
+  headers: { "Content-Type": "application/json" },
 });
 
-// ✅ Request interceptor: add token if available
-AppService.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+let isRefreshing = false;
+let refreshSubscribers = [];
 
-// ✅ Response interceptor: handle 401 errors
+function subscribeTokenRefresh(cb) {
+  refreshSubscribers.push(cb);
+}
+
+function onRefreshed(token) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
+// ✅ Request interceptor: attach token
+AppService.interceptors.request.use((config) => {
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    if (!config.headers) config.headers = {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ✅ Response interceptor: refresh tokens when 401
 AppService.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // token expired or not valid
-      localStorage.removeItem("authToken");
-      window.location.href = "/login"; // redirect to login
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            resolve(AppService(originalRequest));
+          });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = localStorage.getItem("refreshToken");
+        const response = await axios.post("http://localhost:8000/api/auth/refresh", { refreshToken });
+        const newToken = response.data.accessToken;
+
+        localStorage.setItem("accessToken", newToken);
+        AppService.defaults.headers.Authorization = `Bearer ${newToken}`;
+        onRefreshed(newToken);
+        return AppService(originalRequest);
+      } catch (err) {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        window.location.href = "/login";
+        return Promise.reject(err);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
     return Promise.reject(error);
   }
 );

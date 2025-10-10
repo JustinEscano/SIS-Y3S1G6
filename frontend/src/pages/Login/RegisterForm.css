@@ -73,6 +73,12 @@
   transition: background-color 0.3s ease;
 }
 
+.error-text { 
+  color: #DC2626;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
 .btn-primary:hover {
   background-color: #880000;
 }
