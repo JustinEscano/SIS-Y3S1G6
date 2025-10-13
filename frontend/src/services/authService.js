@@ -14,11 +14,14 @@ const register = async (payload) => {
 const login = async ({ email, password }) => {
   try {
     const res = await AppService.post('/auth/login', { email, password });
-    const { token, role } = res.data;
+    // backend may return { token } or { accessToken }
+    const accessToken = res.data.accessToken || res.data.token;
+    const { refreshToken, role } = res.data;
 
-    localStorage.setItem('accessToken', token);
-    localStorage.setItem('role', role);
-    return { token, role };
+    if (accessToken) localStorage.setItem('accessToken', accessToken);
+    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+    if (role) localStorage.setItem('role', role);
+    return { accessToken, refreshToken, role };
   } catch (err) {
     throw err.response?.data || err;
   }

@@ -1,7 +1,7 @@
 // src/App.jsx
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/authContext"; // ✅ correct import
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/authContext";
 import Login from "./pages/Login/Login";
 import TeacherRoutes from "./pages/Teacher/Route";
 import StudentDashboard from "./pages/Student/Dashboard";
@@ -12,7 +12,11 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          {/* Default route */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
           <Route path="/login" element={<Login />} />
+
           <Route
             path="/teacher/*"
             element={
@@ -21,6 +25,7 @@ function App() {
               </RoutesProtect>
             }
           />
+
           <Route
             path="/student"
             element={

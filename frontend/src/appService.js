@@ -1,7 +1,9 @@
 import axios from "axios";
 
+const BACKEND_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+
 const AppService = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: BACKEND_BASE,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -45,9 +47,9 @@ AppService.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      try {
-        const refreshToken = localStorage.getItem("refreshToken");
-        const response = await axios.post("http://localhost:8000/api/auth/refresh", { refreshToken });
+  try {
+  const refreshToken = localStorage.getItem("refreshToken");
+  const response = await axios.post(`${BACKEND_BASE}/auth/refresh`, { refreshToken });
         const newToken = response.data.accessToken;
 
         localStorage.setItem("accessToken", newToken);
