@@ -23,15 +23,16 @@ function Login() {
     setError("");
 
     try {
-      const { token, role } = await authService.login({ email, password });
-      login(token, role);
+      const { accessToken, role } = await authService.login({ email, password });
+      login(accessToken, role);
 
       // Redirect based on role
       if (role === "student") navigate("/student");
       else if (role === "teacher" || role === "superadmin") navigate("/teacher");
       else navigate("/login"); // fallback
     } catch (err) {
-      setError(err.message || "Invalid email or password");
+      const msg = err.response?.data?.message || "Invalid email or password";
+      setError(msg);
     }
   };
 
