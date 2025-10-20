@@ -1,17 +1,15 @@
-import React, { useState } from 'react';
-import './RegisterForm.css';
-import authService from '../../services/authService';
+import React, { useState } from "react";
+import authService from "../../services/authService";
 
 function RegisterForm({ switchMode }) {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    inviteCode: '',
+    name: "",
+    email: "",
+    password: "",
+    inviteCode: "",
   });
-
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -19,33 +17,34 @@ function RegisterForm({ switchMode }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     try {
-      // Send all data including inviteCode to backend
       const res = await authService.register(formData);
-      console.log('Registered successfully:', res);
-      alert('Registration successful! You can now login.');
-      switchMode(); // switch to login form
+      console.log("Registered successfully:", res);
+      alert("Registration successful! You can now login.");
+      switchMode();
     } catch (err) {
       if (err.response?.data?.errors) {
-        const messages = err.response.data.errors.map(e => e.msg).join(', ');
-        setError(messages); // sets the <p className="error-text">* {error}</p>
+        const messages = err.response.data.errors
+          .map((e) => (typeof e === "string" ? e : e.msg))
+          .join(", ");
+        setError(messages);
       } else {
-        setError(err.response?.data?.message || 'Registration failed');
+        setError(err.response?.data?.message || "Registration failed");
       }
     }
   };
 
-
   return (
-    <div className="register-card">
-      <h2 className="register-title">Create your account</h2>
-      <p className="register-subtitle">Just a few details to get you started.</p>
+    <div className="w-full max-w-md bg-white/95 p-8 rounded-2xl shadow-xl font-sans">
+      <h2 className="text-2xl font-semibold text-gray-900 mb-1">Create your account</h2>
+      <p className="text-sm text-gray-500 mb-6">Just a few details to get you started.</p>
 
-      <form className="register-form" onSubmit={handleSubmit}>
-        <div className="input-group">
-          <label>Full Name</label>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Name */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-800 mb-1">Full Name</label>
           <input
             type="text"
             name="name"
@@ -53,11 +52,13 @@ function RegisterForm({ switchMode }) {
             required
             value={formData.name}
             onChange={handleChange}
+            className="w-full px-4 py-3 border border-[#81020B] rounded-xl text-gray-900 focus:outline-none focus:border-gray-400"
           />
         </div>
 
-        <div className="input-group">
-          <label>Email</label>
+        {/* Email */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-800 mb-1">Email</label>
           <input
             type="email"
             name="email"
@@ -65,42 +66,34 @@ function RegisterForm({ switchMode }) {
             required
             value={formData.email}
             onChange={handleChange}
+            className="w-full px-4 py-3 border border-[#81020B] rounded-xl text-gray-900 focus:outline-none focus:border-gray-400"
           />
         </div>
 
-        <div className="input-group" style={{ position: 'relative' }}>
-          <label>Password</label>
+        {/* Password */}
+        <div className="relative">
+          <label className="block text-sm font-semibold text-gray-800 mb-1">Password</label>
           <input
-            type={showPassword ? 'text' : 'password'}
+            type={showPassword ? "text" : "password"}
             name="password"
             placeholder="Enter your password"
             required
             value={formData.password}
             onChange={handleChange}
-            style={{ paddingRight: '60px' }}
+            className="w-full px-4 py-3 border border-[#81020B] rounded-xl text-gray-900 focus:outline-none focus:border-gray-400 pr-16"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            style={{
-              position: 'absolute',
-              right: '10px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              color: '#555',
-              fontSize: '0.9rem',
-              padding: 0,
-            }}
+            className="absolute right-4 top-9 text-sm text-gray-500 hover:text-gray-700"
           >
-            {showPassword ? 'Hide' : 'Show'}
+            {showPassword ? "Hide" : "Show"}
           </button>
         </div>
 
-        <div className="input-group">
-          <label>Invite Code</label>
+        {/* Invite Code */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-800 mb-1">Invite Code</label>
           <input
             type="text"
             name="inviteCode"
@@ -108,16 +101,28 @@ function RegisterForm({ switchMode }) {
             required
             value={formData.inviteCode}
             onChange={handleChange}
+            className="w-full px-4 py-3 border border-[#81020B] rounded-xl text-gray-900 focus:outline-none focus:border-gray-400"
           />
         </div>
 
-        {error && <p className="error-text">* {error}</p>}
+        {error && <p className="text-red-600 text-sm">* {error}</p>}
 
-        <button type="submit" className="btn-primary">Sign Up</button>
+        <button
+          type="submit"
+          className="w-full py-3 bg-[#81020B] text-white font-medium rounded-xl hover:bg-[#990000] transition"
+        >
+          Sign Up
+        </button>
       </form>
 
-      <p className="footer-text">
-        Already have an account? <span onClick={switchMode}>Login</span>
+      <p className="text-sm text-gray-500 text-center mt-6">
+        Already have an account?{" "}
+        <span
+          onClick={switchMode}
+          className="text-[#81020B] font-semibold cursor-pointer hover:underline"
+        >
+          Login
+        </span>
       </p>
     </div>
   );

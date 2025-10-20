@@ -5,9 +5,8 @@ import authService from "../../services/authService";
 
 import LoginForm from "./LoginForm";
 import RegisterForm from "./RegisterForm";
-import logo from '../../assets/images/logo.png';
-import bg from '../../assets/images/login-bg.png';
-import './LoginPage.css';
+import logo from "../../assets/images/logo.png";
+import bg from "../../assets/images/login-bg.png";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -29,7 +28,7 @@ function Login() {
       // Redirect based on role
       if (role === "student") navigate("/student");
       else if (role === "teacher" || role === "superadmin") navigate("/teacher");
-      else navigate("/login"); // fallback
+      else navigate("/login");
     } catch (err) {
       const msg = err.response?.data?.message || "Invalid email or password";
       setError(msg);
@@ -38,27 +37,23 @@ function Login() {
 
   return (
     <div
-      className="login-page"
-      style={{
-        backgroundImage: `url(${bg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
+      className="flex min-h-screen bg-cover bg-center"
+      style={{ backgroundImage: `url(${bg})` }}
     >
-      <div className="login-left">
-        <div className="login-left-content">
-          <img src={logo} alt="School Logo" className="school-logo" />
-          <h1 className="school-name">Oakridge International High School of Young Leaders</h1>
-          <p className="school-address">A.B Fernandez East, Dagupan City, Philippines</p>
-        </div>
+      {/* Left Section */}
+      <div className="flex flex-1 flex-col justify-center items-center text-center px-6 md:px-10">
+        <img src={logo} alt="School Logo" className="w-36 h-auto mb-8" />
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+          Oakridge International High School of Young Leaders
+        </h1>
+        <p className="text-gray-500 text-base md:text-lg">
+          A.B Fernandez East, Dagupan City, Philippines
+        </p>
       </div>
 
-      <div className="login-right">
-        {isLogin ? (
+      {/* Right Section */}
+      <div className="flex flex-1 justify-center items-center bg-transparent p-8 md:p-12 rounded-l-3xl relative">
+        <div className={`absolute inset-0 flex justify-center items-center transition-all duration-500 ease-in-out transform ${isLogin ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-full'}`}>
           <LoginForm
             email={email}
             setEmail={setEmail}
@@ -68,9 +63,10 @@ function Login() {
             error={error}
             switchMode={() => setIsLogin(false)}
           />
-        ) : (
+        </div>
+        <div className={`absolute inset-0 flex justify-center items-center transition-all duration-500 ease-in-out transform ${!isLogin ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'}`}>
           <RegisterForm switchMode={() => setIsLogin(true)} />
-        )}
+        </div>
       </div>
     </div>
   );
