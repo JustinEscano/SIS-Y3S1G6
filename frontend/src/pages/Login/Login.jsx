@@ -25,7 +25,6 @@ function Login() {
       const { accessToken, role } = await authService.login({ email, password });
       login(accessToken, role);
 
-      // Redirect based on role
       if (role === "student") navigate("/student");
       else if (role === "teacher" || role === "superadmin") navigate("/teacher");
       else navigate("/login");
@@ -37,23 +36,32 @@ function Login() {
 
   return (
     <div
-      className="flex min-h-screen bg-cover bg-center"
+      className="flex w-full min-h-screen font-inter bg-cover bg-center"
       style={{ backgroundImage: `url(${bg})` }}
     >
       {/* Left Section */}
-      <div className="flex flex-1 flex-col justify-center items-center text-center px-6 md:px-10">
-        <img src={logo} alt="School Logo" className="w-36 h-auto mb-8" />
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-          Oakridge International High School of Young Leaders
-        </h1>
-        <p className="text-gray-500 text-base md:text-lg">
-          A.B Fernandez East, Dagupan City, Philippines
-        </p>
+      <div className="flex flex-1 justify-center items-center min-h-screen box-border">
+        <div className="flex flex-col items-center text-center w-full max-w-[450px] px-5 md:px-8">
+          <img src={logo} alt="School Logo" className="w-[150px] h-auto mb-10" />
+          <h1 className="text-[32px] md:text-[36px] font-bold leading-tight mb-3 text-black">
+            Oakridge International High School of Young Leaders
+          </h1>
+          <p className="text-[16px] text-[#b2b2b3]">
+            A.B Fernandez East, Dagupan City, Philippines
+          </p>
+        </div>
       </div>
 
       {/* Right Section */}
-      <div className="flex flex-1 justify-center items-center bg-transparent p-8 md:p-12 rounded-l-3xl relative">
-        <div className={`absolute inset-0 flex justify-center items-center transition-all duration-500 ease-in-out transform ${isLogin ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-full'}`}>
+      <div className="flex flex-1 justify-center items-center p-10 md:p-20 min-h-screen box-border relative">
+        {/* Login Form */}
+        <div
+          className={`absolute inset-0 flex justify-center items-center transition-all duration-500 ease-in-out transform ${
+            isLogin
+              ? "opacity-100 translate-x-0"
+              : "opacity-0 -translate-x-full"
+          }`}
+        >
           <LoginForm
             email={email}
             setEmail={setEmail}
@@ -64,7 +72,15 @@ function Login() {
             switchMode={() => setIsLogin(false)}
           />
         </div>
-        <div className={`absolute inset-0 flex justify-center items-center transition-all duration-500 ease-in-out transform ${!isLogin ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'}`}>
+
+        {/* Register Form */}
+        <div
+          className={`absolute inset-0 flex justify-center items-center transition-all duration-500 ease-in-out transform ${
+            !isLogin
+              ? "opacity-100 translate-x-0"
+              : "opacity-0 translate-x-full"
+          }`}
+        >
           <RegisterForm switchMode={() => setIsLogin(true)} />
         </div>
       </div>
