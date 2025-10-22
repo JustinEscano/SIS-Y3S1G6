@@ -56,6 +56,7 @@ exports.register = async (req, res, next) => {
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    console.log('🔑 Login attempt for email:', email); // Debug: Track login starts
 
     let user = await Student.findOne({ email });
     let role = 'student';
@@ -72,6 +73,10 @@ exports.login = async (req, res, next) => {
     const token = generateAccessToken(user._id, role);
     const refreshToken = generateRefreshToken(user._id, role);
 
+    console.log('✅ Login success - Generated tokens for', role, 'ID:', user._id.toString(), // Debug: Confirm token generation
+      '- Access exp:', new Date(Date.now() + (process.env.ACCESS_TOKEN_EXPIRY || '15m')), // Rough exp calc
+      '- Refresh exp:', new Date(Date.now() + (process.env.REFRESH_TOKEN_EXPIRY || '7d'))); // Debug: Expiry preview
+
     res.json({ token, refreshToken, role });
   } catch (err) {
     next(err);
@@ -84,11 +89,19 @@ exports.refreshToken = async (req, res) => {
   if (!refreshToken)
     return res.status(401).json({ message: 'Missing refresh token' });
 
+  console.log('🔄 Refresh request received - Token preview:', refreshToken.substring(0, 20) + '...'); // Debug: Confirm incoming refresh
+
   try {
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    console.log('✅ Refresh verify success for ID:', decoded.id, 'role:', decoded.role); // Debug: Valid refresh details
+
     const newAccessToken = generateAccessToken(decoded.id, decoded.role);
+    console.log('🔄 Generated new access token for refresh - Exp:', new Date(Date.now() + (process.env.ACCESS_TOKEN_EXPIRY || '15m'))); // Debug: New token exp
+
     res.json({ accessToken: newAccessToken });
   } catch (err) {
+    console.error('❌ Refresh token verification failed:', err.name, '-', err.message, // Enhanced: Specific error type (e.g., TokenExpiredError)
+      '- Token preview:', refreshToken.substring(0, 20) + '...'); // Debug: Which token failed
     res.status(403).json({ message: 'Invalid or expired refresh token' });
   }
 };

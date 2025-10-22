@@ -25,3 +25,9 @@ h1, h2, h3, h4, h5, h6 {
 .btn-login, .btn-google {
   font-family: var(--font-subheading);
 }
+
+/* Add to your global CSS (e.g., src/index.css) for the spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

@@ -1,7 +1,7 @@
+// components/Sidebar.jsx (Hybrid Version)
 import React from "react";
 import { NavLink } from "react-router-dom";
 import logo from "../../../assets/images/logo.png";
-import "../styles/Sidebar.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faHome,
@@ -11,10 +11,12 @@ import {
   faBell,
   faRightFromBracket,
 } from "@fortawesome/free-solid-svg-icons";
+import '../styles/Sidebar.css'; // Import hybrid CSS
 
 function Sidebar() {
   return (
     <aside className="teacher-sidebar">
+      {/* Header */}
       <div className="sidebar-header">
         <img src={logo} alt="Oakridge Logo" className="sidebar-logo" />
         <div className="sidebar-school-info">
@@ -27,10 +29,11 @@ function Sidebar() {
         </div>
       </div>
 
+      {/* Navigation */}
       <nav className="sidebar-nav">
         <NavLink
           to="/teacher/dashboard"
-          className={({ isActive }) => (isActive ? "active" : "")}
+          className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
         >
           <FontAwesomeIcon icon={faHome} />
           <span>Dashboard</span>
@@ -38,7 +41,7 @@ function Sidebar() {
 
         <NavLink
           to="/teacher/students"
-          className={({ isActive }) => (isActive ? "active" : "")}
+          className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
         >
           <FontAwesomeIcon icon={faUserGraduate} />
           <span>Student Management</span>
@@ -46,7 +49,7 @@ function Sidebar() {
 
         <NavLink
           to="/teacher/subjects"
-          className={({ isActive }) => (isActive ? "active" : "")}
+          className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
         >
           <FontAwesomeIcon icon={faBook} />
           <span>Subject Management</span>
@@ -54,7 +57,7 @@ function Sidebar() {
 
         <NavLink
           to="/teacher/analytics"
-          className={({ isActive }) => (isActive ? "active" : "")}
+          className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
         >
           <FontAwesomeIcon icon={faChartLine} />
           <span>Analytics</span>
@@ -62,16 +65,17 @@ function Sidebar() {
 
         <NavLink
           to="/teacher/notifications"
-          className={({ isActive }) => (isActive ? "active" : "")}
+          className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
         >
           <FontAwesomeIcon icon={faBell} />
           <span>Notifications</span>
         </NavLink>
       </nav>
 
+      {/* Footer */}
       <div className="sidebar-footer">
         <button className="logout-btn">
-          <FontAwesomeIcon icon={faRightFromBracket} />
+          <FontAwesomeIcon icon={faRightFromBracket} className="logout-icon" />
           <span>Logout</span>
         </button>
       </div>

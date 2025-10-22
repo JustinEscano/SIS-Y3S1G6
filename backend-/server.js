@@ -1,3 +1,4 @@
+// server.js (Full refactored version - incorporating student routes)
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config(); // Load .env early
@@ -6,6 +7,9 @@ const { errorHandler } = require('./middleware/errorMiddleware');
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
+const subjectRoutes = require('./routes/subjectRoutes');
+const studentRoutes = require('./routes/studentRoutes');
+const gradeRoutes = require('./routes/gradeRoutes');
 
 const app = express();
 
@@ -21,6 +25,9 @@ app.get('/', (req, res) => res.send('✅ API is running...'));
 
 // 🧩 Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/subjects', subjectRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/grades', gradeRoutes)
 
 // ⚠️ Global error handler
 app.use(errorHandler);

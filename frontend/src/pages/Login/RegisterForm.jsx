@@ -1,5 +1,7 @@
+// components/RegisterForm.jsx (Hybrid Version)
 import React, { useState } from "react";
 import authService from "../../services/authService";
+import './RegisterForm.css'; // Import hybrid CSS
 
 function RegisterForm({ switchMode }) {
   const [formData, setFormData] = useState({
@@ -37,14 +39,14 @@ function RegisterForm({ switchMode }) {
   };
 
   return (
-    <div className="w-full max-w-md bg-white/95 p-8 rounded-2xl shadow-xl font-sans">
-      <h2 className="text-2xl font-semibold text-gray-900 mb-1">Create your account</h2>
-      <p className="text-sm text-gray-500 mb-6">Just a few details to get you started.</p>
+    <div className="register-card">
+      <h2 className="register-title">Create your account</h2>
+      <p className="register-subtitle">Just a few details to get you started.</p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="register-form">
         {/* Name */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-800 mb-1">Full Name</label>
+        <div className="input-group">
+          <label>Full Name</label>
           <input
             type="text"
             name="name"
@@ -52,13 +54,12 @@ function RegisterForm({ switchMode }) {
             required
             value={formData.name}
             onChange={handleChange}
-            className="w-full px-4 py-3 border border-[#81020B] rounded-xl text-gray-900 focus:outline-none focus:border-gray-400"
           />
         </div>
 
         {/* Email */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-800 mb-1">Email</label>
+        <div className="input-group">
+          <label>Email</label>
           <input
             type="email"
             name="email"
@@ -66,13 +67,12 @@ function RegisterForm({ switchMode }) {
             required
             value={formData.email}
             onChange={handleChange}
-            className="w-full px-4 py-3 border border-[#81020B] rounded-xl text-gray-900 focus:outline-none focus:border-gray-400"
           />
         </div>
 
         {/* Password */}
-        <div className="relative">
-          <label className="block text-sm font-semibold text-gray-800 mb-1">Password</label>
+        <div className="input-group relative">
+          <label>Password</label>
           <input
             type={showPassword ? "text" : "password"}
             name="password"
@@ -80,20 +80,20 @@ function RegisterForm({ switchMode }) {
             required
             value={formData.password}
             onChange={handleChange}
-            className="w-full px-4 py-3 border border-[#81020B] rounded-xl text-gray-900 focus:outline-none focus:border-gray-400 pr-16"
+            className="pr-16" /* Extra padding for toggle button */
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-9 text-sm text-gray-500 hover:text-gray-700"
+            className="password-toggle"
           >
             {showPassword ? "Hide" : "Show"}
           </button>
         </div>
 
         {/* Invite Code */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-800 mb-1">Invite Code</label>
+        <div className="input-group">
+          <label>Invite Code</label>
           <input
             type="text"
             name="inviteCode"
@@ -101,25 +101,23 @@ function RegisterForm({ switchMode }) {
             required
             value={formData.inviteCode}
             onChange={handleChange}
-            className="w-full px-4 py-3 border border-[#81020B] rounded-xl text-gray-900 focus:outline-none focus:border-gray-400"
           />
         </div>
 
-        {error && <p className="text-red-600 text-sm">* {error}</p>}
+        {error && <p className="error-text">* {error}</p>}
 
         <button
           type="submit"
-          className="w-full py-3 bg-[#81020B] text-white font-medium rounded-xl hover:bg-[#990000] transition"
+          className="btn-primary bg-[#81020b]"
         >
           Sign Up
         </button>
       </form>
 
-      <p className="text-sm text-gray-500 text-center mt-6">
+      <p className="footer-text">
         Already have an account?{" "}
         <span
           onClick={switchMode}
-          className="text-[#81020B] font-semibold cursor-pointer hover:underline"
         >
           Login
         </span>

@@ -1,4 +1,5 @@
 const { body, validationResult } = require('express-validator');
+const Joi = require('joi');
 
 // Validation rules
 const registerValidation = [
@@ -28,8 +29,29 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
+// subject schema
+const createSubjectSchema = Joi.object({
+  name: Joi.string().required().max(100),
+  description: Joi.string().max(500),
+  gradeLevel: Joi.number().integer().min(1).max(12).required(),
+  schoolYear: Joi.string().pattern(/^\d{4}-\d{4}$/).required(), // e.g., 2024-2025
+  students: Joi.array().items(Joi.string()) // ObjectIds as strings
+});
+
+const updateSubjectSchema = Joi.object({
+  name: Joi.string().max(100),
+  description: Joi.string().max(500),
+  gradeLevel: Joi.number().integer().min(1).max(12),
+  schoolYear: Joi.string().pattern(/^\d{4}-\d{4}$/),
+  students: Joi.array().items(Joi.string()).optional(),
+  action: Joi.string().valid('add', 'remove').when('students', { is: Joi.exist(), then: Joi.required() }),
+  archived: Joi.boolean()
+});
+
 module.exports = {
   registerValidation,
   loginValidation,
   handleValidationErrors,
+  createSubjectSchema, 
+  updateSubjectSchema
 };

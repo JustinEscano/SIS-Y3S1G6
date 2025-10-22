@@ -1,106 +1,100 @@
-.teacher-sidebar {
-  width: 250px;
-  background-color: #ffffff;
-  height: 100vh;
-  position: fixed;
-  top: 0;
-  left: 0;
-  display: flex;
-  flex-direction: column;
-  z-index: 100; 
-  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.1); 
-  border-right: 1px solid #e5e7eb;
-}
+/* Sidebar.css (Hybrid Version) */
+/* Tailwind Directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-.sidebar-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 28px 12px;
-  border-bottom: 1px solid #f3f4f6;
-  text-align: center;
-}
+@layer components {
+  .teacher-sidebar {
+    @apply fixed left-0 top-0 z-50 flex flex-col bg-white border-r shadow-lg; /* Tailwind layout/shadow */
+    width: 250px;
+    height: 100vh;
+    border-right-color: #e5e7eb;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.1); /* Custom shadow override */
+  }
 
-.sidebar-logo {
-  width: 70px;
-  height: auto;
-  margin-bottom: 10px;
-}
+  .sidebar-header {
+    @apply flex flex-col items-center text-center border-b; /* Tailwind flex/border */
+    padding: 28px 12px;
+    border-bottom-color: #f3f4f6;
+  }
 
-.sidebar-school-info h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #81020b;
-  margin: 0;
-  letter-spacing: 0.5px;
-}
+  .sidebar-logo {
+    @apply w-16 h-auto mb-2.5; /* Tailwind sizing */
+    width: 70px; /* Custom override */
+  }
 
-.sidebar-school-info p {
-  font-size: 12px;
-  color: #6b7280;
-  line-height: 1.4;
-  margin-top: 4px;
-}
+  .sidebar-school-info {
+    @apply space-y-1; /* Tailwind spacing */
+  }
 
-.sidebar-nav {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  margin-top: 16px;
-}
+  .sidebar-school-info h2 {
+    @apply text-lg font-bold tracking-wide; /* Tailwind text */
+    color: #81020b;
+    letter-spacing: 0.5px; /* Custom */
+  }
 
-.sidebar-nav a {
-  display: flex;
-  align-items: center;
-  padding: 14px 20px;
-  text-decoration: none;
-  color: #374151;
-  font-size: 15px;
-  transition: all 0.2s ease-in-out;
-  gap: 12px;
-  border-radius: 8px;
-  margin: 4px 10px;
-}
+  .sidebar-school-info p {
+    @apply text-xs text-gray-500 leading-relaxed; /* Tailwind text/line-height */
+    line-height: 1.4; /* Custom override */
+    margin: 0;
+  }
 
-.sidebar-nav a svg {
-  font-size: 16px;
-  color: #6b7280;
-  width: 18px;
-}
+  .sidebar-nav {
+    @apply flex-1 flex flex-col mt-4 px-2.5; /* Tailwind flex/spacing */
+    margin-top: 16px; /* Custom */
+  }
 
-.sidebar-nav a:hover {
-  background-color: #f9fafb;
-  color: #81020b;
-}
+  .sidebar-nav-link {
+    @apply flex items-center text-sm text-gray-700 rounded-lg transition-all duration-200 no-underline; /* Tailwind base */
+    padding: 14px 20px;
+    gap: 12px;
+    margin: 4px 10px;
+    color: #374151;
+    font-size: 15px;
+  }
 
-.sidebar-nav a.active {
-  background-color: #fff5f5;
-  color: #81020b;
-  font-weight: 600;
-}
+  .sidebar-nav-link svg {
+    @apply w-4 h-4 text-gray-400 transition-colors duration-200; /* Tailwind icon sizing/hover */
+    font-size: 16px;
+    color: #6b7280;
+    width: 18px;
+  }
 
-.sidebar-nav a.active svg,
-.sidebar-nav a:hover svg {
-  color: #81020b;
-}
+  .sidebar-nav-link:hover {
+    @apply bg-gray-50 text-[#81020b]; /* Tailwind hover */
+    background-color: #f9fafb; /* Custom override */
+  }
 
-.sidebar-footer {
-  padding: 16px 20px;
-  border-top: 1px solid #f3f4f6;
-}
+  .sidebar-nav-link:hover svg {
+    color: #81020b;
+  }
 
-.logout-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 15px;
-  color: #81020b;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: opacity 0.2s ease-in-out;
-}
+  .sidebar-nav-link.active {
+    @apply bg-red-50 text-[#81020b] font-semibold; /* Tailwind active */
+    background-color: #fff5f5; /* Custom override */
+  }
 
-.logout-btn:hover {
-  opacity: 0.8;
+  .sidebar-nav-link.active svg {
+    color: #81020b;
+  }
+
+  .sidebar-footer {
+    @apply p-4 border-t; /* Tailwind padding/border */
+    border-top-color: #f3f4f6;
+    padding: 16px 20px; /* Custom */
+  }
+
+  .logout-btn {
+    @apply w-full flex items-center text-sm text-[#81020b] font-medium p-3 rounded-lg hover:opacity-80 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50; /* Full Tailwind button */
+    gap: 10px;
+    font-size: 15px;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .logout-icon {
+    @apply w-4 h-4; /* Tailwind icon */
+  }
 }

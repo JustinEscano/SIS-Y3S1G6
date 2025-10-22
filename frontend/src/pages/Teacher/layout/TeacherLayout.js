@@ -1,15 +1,17 @@
-// pages/Teacher/TeacherLayout.js
+// pages/Teacher/TeacherLayout.jsx
 import React from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 
 function TeacherLayout({ children }) {
   return (
-    <div className="teacher-layout">
+    <div className="min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="teacher-main">
+      <div className="ml-64">
         <Topbar />
-        <div className="teacher-content">{children}</div>
+        <main className="pt-16 p-6">
+          {children}
+        </main>
       </div>
     </div>
   );
