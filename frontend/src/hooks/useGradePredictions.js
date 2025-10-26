@@ -5,6 +5,7 @@
 // FIXED: predictValue: sem2 (avg Q3/Q4 pred), current (avg all 4 with pred missing), nextYear (avg Q5-8 pred).
 // FIXED: predictedFinal: sem2 (avg sem1 actual + sem2 pred), current/nextYear (predictValue).
 // FIXED: Clamped predictions 0-100.
+// MODIFIED: For sem2 mode, chart shows prediction line (actual Q1/Q2 + pred Q3/Q4) and, if sem2 actuals available, an additional actual line (Q1/Q2/Q3/Q4).
 
 import { useMemo } from 'react';
 
@@ -113,7 +114,6 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
     }
 
     const commonDataset = {
-      label: 'Grade Progress',
       borderColor: 'rgb(59, 130, 246)',
       backgroundColor: 'rgba(59, 130, 246, 0.5)',
       tension: 0.1,
@@ -128,11 +128,26 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
       ) : { slope: 0, intercept: 0 };
       const predQ3 = Math.max(0, Math.min(100, slope * 3 + intercept));
       const predQ4 = Math.max(0, Math.min(100, slope * 4 + intercept));
-      const data = [q1_total ?? NaN, q2_total ?? NaN, predQ3, predQ4];
-      return {
-        labels: ['Q1 (Sem 1)', 'Q2 (Sem 1)', 'Q3 (Sem 2)', 'Q4 (Sem 2)'],
-        datasets: [{ ...commonDataset, data }]
-      };
+      const labels = ['Q1 (Sem 1)', 'Q2 (Sem 1)', 'Q3 (Sem 2)', 'Q4 (Sem 2)'];
+      const predictionData = [q1_total ?? NaN, q2_total ?? NaN, predQ3, predQ4];
+      let datasets = [{
+        label: 'Predicted Progress',
+        data: predictionData,
+        ...commonDataset,
+      }];
+      const hasSem2Data = q3_total !== null || q4_total !== null;
+      if (hasSem2Data) {
+        const actualData = [q1_total ?? NaN, q2_total ?? NaN, q3_total ?? NaN, q4_total ?? NaN];
+        datasets.push({
+          label: 'Actual Grades',
+          data: actualData,
+          borderColor: 'rgb(34, 197, 94)',
+          backgroundColor: 'rgba(34, 197, 94, 0.5)',
+          tension: 0.1,
+          fill: false,
+        });
+      }
+      return { labels, datasets };
     } else if (predictionMode === 'current') {
       const allX = availableQuarters.map(d => d.x);
       const allY = availableQuarters.map(d => d.y);
@@ -148,7 +163,7 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
       const labels = ['Q1', 'Q2', 'Q3', 'Q4'];
       return {
         labels,
-        datasets: [{ ...commonDataset, data }]
+        datasets: [{ label: 'Grade Progress', data, ...commonDataset }]
       };
     } else {
       const allX = availableQuarters.map(d => d.x);
@@ -158,7 +173,7 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
       const futureData = [5, 6, 7, 8].map(x => Math.max(0, Math.min(100, slope * x + intercept)));
       return {
         labels: ['Q1', 'Q2', 'Q3', 'Q4', 'Next Q1', 'Next Q2', 'Next Q3', 'Next Q4'],
-        datasets: [{ ...commonDataset, data: [...actualData, ...futureData] }]
+        datasets: [{ label: 'Grade Progress', data: [...actualData, ...futureData], ...commonDataset }]
       };
     }
   }, [predictionMode, availableQuarters, q1_total, q2_total, q3_total, q4_total]);

@@ -7,7 +7,8 @@ const {
   importGrades,
   getStudentSubjectGrades,
   updateStudentGrade,
-  updateStudentComments
+  updateStudentComments,
+  getStudentGradeProgress
 } = require('../controllers/gradeController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 const multer = require('multer');
@@ -30,5 +31,7 @@ router.post('/subjects/:subjectId/import', verifyToken, requireRole('teacher'), 
 
 // GET /api/grades/subjects/:subjectId/export?studentId=xxx (export XLSX, studentId optional via query)
 router.get('/subjects/:subjectId/export', verifyToken, requireRole('teacher'), exportGrades);
+
+router.get('/student/:studentId/progress', verifyToken, requireRole(['student', 'teacher']), getStudentGradeProgress);
 
 module.exports = router;

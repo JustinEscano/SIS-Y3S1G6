@@ -119,6 +119,7 @@ const updateSubject = async (subjectId, payload, token) => {
     console.log('📦 Payload:', payload);
     const res = await AppService.put(`/subjects/${subjectId}`, payload, token);
     console.log('✅ Success:', res.status, res.data);
+    console.log('Request payload:', payload); // Assuming 'payload' is your request body
     return res.data;
   } catch (error) {
     console.error("❌ Error updating subject:", {
@@ -148,6 +149,41 @@ const getSubject = async (subjectId, token) => {
   }
 };
 
+const getTeacherArchivedSubjects = async (token) => {
+  try {
+    console.log('🔍 Fetching teacher archived subjects...');
+    console.log('📡 URL:', '/subjects/archived/teacher');
+    const res = await AppService.get('/subjects/archived/teacher', token);
+    console.log('✅ Success:', res.status, res.data);
+    return res.data;
+  } catch (error) {
+    console.error("❌ Error fetching teacher archived subjects:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    throw error;
+  }
+};
+
+// 📚 Get ARCHIVED subjects for the authenticated student
+const getStudentArchivedSubjects = async (token) => {
+  try {
+    console.log('🔍 Fetching student archived subjects...');
+    console.log('📡 URL:', '/subjects/archived/student');
+    const res = await AppService.get('/subjects/archived/student', token);
+    console.log('✅ Success:', res.status, res.data);
+    return res.data;
+  } catch (error) {
+    console.error("❌ Error fetching student archived subjects:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    throw error;
+  }
+};
+
 const subjectService = {
   getTeacherSubjects,
   getStudentSubjects,
@@ -157,6 +193,8 @@ const subjectService = {
   removeStudentFromSubject,
   updateSubject,
   getSubject,
+  getTeacherArchivedSubjects,
+  getStudentArchivedSubjects,
 };
 
 export default subjectService;

@@ -8,9 +8,13 @@ const {
   getSubjectStudents,
   updateSubject,
   addStudentToSubject,
-  removeStudentFromSubject
+  removeStudentFromSubject,
+  getTeacherArchivedSubjects,
+  getStudentArchivedSubjects
 } = require('../controllers/subjectController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
+// NEW: Import the Joi validation helper and the specific schema
+const { validateRequest, updateSubjectSchema, createSubjectSchema } = require('../middleware/validate');
 
 // GET /api/subjects (teacher)
 router.get('/', verifyToken, requireRole('teacher'), getTeacherSubjects);
@@ -18,14 +22,26 @@ router.get('/', verifyToken, requireRole('teacher'), getTeacherSubjects);
 // GET /api/subjects/student (student's subjects) — MOVED UP: Before /:id
 router.get('/student', verifyToken, requireRole('student'), getStudentSubjects);
 
-// GET /api/subjects/:id (single subject) — Now after /student
-router.get('/:id', verifyToken, requireRole(['teacher', 'student']), getSubjectById)
+// GET /api/subjects/archived/teacher (teacher's archived subjects)
+router.get('/archived/teacher', verifyToken, requireRole('teacher'), getTeacherArchivedSubjects);
 
-// POST /api/subjects (create)
-router.post('/', verifyToken, requireRole('teacher'), createSubject);
+// GET /api/subjects/archived/student (student's archived subjects)
+router.get('/archived/student', verifyToken, requireRole('student'), getStudentArchivedSubjects);
 
-// PUT /api/subjects/:id (update)
-router.put('/:id', verifyToken, requireRole('teacher'), updateSubject);
+// GET /api/subjects/:id (single subject) — Now after specific routes
+router.get('/:id', verifyToken, requireRole(['teacher', 'student']), getSubjectById);
+
+// POST /api/subjects (create) - Optional: Add create validation too
+router.post('/', verifyToken, requireRole('teacher'), validateRequest(createSubjectSchema), createSubject); // Added create validation
+
+// PUT /api/subjects/:id (update) - *** APPLY VALIDATION MIDDLEWARE HERE ***
+router.put(
+    '/:id',
+    verifyToken,
+    requireRole('teacher'),
+    validateRequest(updateSubjectSchema), // <-- Use the middleware with the update schema
+    updateSubject
+);
 
 // POST /api/subjects/:id/students (add single student)
 router.post('/:id/students', verifyToken, requireRole('teacher'), addStudentToSubject);
@@ -34,6 +50,6 @@ router.post('/:id/students', verifyToken, requireRole('teacher'), addStudentToSu
 router.delete('/:id/students/:studentId', verifyToken, requireRole('teacher'), removeStudentFromSubject);
 
 // GET /api/subjects/:id/students (shared)
-router.get('/:id/students', verifyToken, getSubjectStudents);
+router.get('/:id/students', verifyToken, getSubjectStudents); // Keep getSubjectStudents here if it just fetches
 
 module.exports = router;

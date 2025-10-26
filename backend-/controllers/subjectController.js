@@ -492,6 +492,41 @@ const removeStudentFromSubject = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @desc Get ARCHIVED subjects for the authenticated teacher
+ * @route GET /api/subjects/archived/teacher
+ * @access Private (Teacher)
+ */
+const getTeacherArchivedSubjects = asyncHandler(async (req, res) => {
+  const subjects = await Subject.find({ teacher: req.user.id, archived: true }) // Filter for archived: true
+    .populate('students', '_id name email section lrn')
+    .sort({ updatedAt: -1 }); // Sort by most recently archived
+  res.status(200).json({
+    success: true,
+    count: subjects.length,
+    data: subjects
+  });
+});
+
+/**
+ * @desc Get ARCHIVED subjects for the authenticated student
+ * @route GET /api/subjects/archived/student
+ * @access Private (Student)
+ */
+const getStudentArchivedSubjects = asyncHandler(async (req, res) => {
+  const subjects = await Subject.find({
+    students: req.user.id,
+    archived: true // Filter for archived: true
+  })
+    .populate('teacher', '_id name email department')
+    .sort({ updatedAt: -1 }); // Sort by most recently archived
+  res.status(200).json({
+    success: true,
+    count: subjects.length,
+    data: subjects
+  });
+});
+
 module.exports = {
   getTeacherSubjects,
   getStudentSubjects,
@@ -500,5 +535,7 @@ module.exports = {
   getSubjectStudents,
   updateSubject,
   addStudentToSubject,
-  removeStudentFromSubject
+  removeStudentFromSubject,
+  getTeacherArchivedSubjects,
+  getStudentArchivedSubjects
 };

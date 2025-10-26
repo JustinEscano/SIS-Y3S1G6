@@ -14,7 +14,7 @@ const StudentAnalytics = () => {
       subjectId={subjectId}
       studentId={studentId}
       user={user} // Pass the user object
-      backUrl={`/teacher/subjects/${subjectId}/grades`}
+      backUrl={`/teacher/subjects/${subjectId}`} // ✅ Dynamic: Uses actual subjectId
     />
   );
 };

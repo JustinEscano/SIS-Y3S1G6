@@ -329,6 +329,47 @@ const importGrades = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, imported: results.length, details: results });
 });
 
+/**
+ * @desc Get grade progress report for a student across all subjects/years
+ * @route GET /api/grades/student/:studentId/progress
+ * @access Private (Student viewing self, or Teacher viewing student)
+ */
+const getStudentGradeProgress = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+
+  // Security check: Ensure student is viewing self, or teacher is involved
+  if (req.role === 'student' && req.user.id !== studentId) {
+    return res.status(403).json({ success: false, error: 'Access denied: You can only view your own progress.' });
+  }
+  // TODO: Add teacher check if needed (e.g., ensure teacher taught this student)
+
+  try {
+    const progressData = await Grade.getProgressReport(studentId);
+
+    // Optional: Populate subject names for better readability on frontend
+    const populatedData = await Promise.all(progressData.map(async (item) => {
+      const subject = await Subject.findById(item.subject).select('name gradeLevel');
+      return {
+        subjectId: item.subject,
+        subjectName: subject ? `${subject.name} (G${subject.gradeLevel})` : 'Unknown Subject',
+        progress: item.progress.map(p => ({
+            ...p,
+            delta: p.delta !== null ? parseFloat(p.delta.toFixed(1)) : null // Ensure delta is number or null
+        }))
+      };
+    }));
+
+
+    res.status(200).json({
+      success: true,
+      data: populatedData
+    });
+  } catch (err) {
+    console.error(`Error getting grade progress for student ${studentId}:`, err);
+    res.status(500).json({ success: false, error: 'Server error while fetching grade progress' });
+  }
+});
+
 module.exports = {
   getSubjectGrades,
   getStudentSubjectGrades,
@@ -336,5 +377,6 @@ module.exports = {
   updateStudentGrade,
   updateStudentComments,
   exportGrades,
-  importGrades
+  importGrades,
+  getStudentGradeProgress
 };
