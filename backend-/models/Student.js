@@ -10,6 +10,7 @@ const studentSchema = new mongoose.Schema(
 
     // Core student-specific fields (no grade levels or progression—derive from enrolled subjects)
     section: { type: String },
+    currentGradeLevel: { type: Number, min: 7, max: 12, default: null },
     lrn: { type: String, unique: true, sparse: true }, // Learner Reference Number
     parentName: { type: String },
 
@@ -32,7 +33,8 @@ studentSchema.index({ 'enrolledClasses.academicYear': 1 });
 // Hash password before saving
 studentSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
@@ -45,16 +47,6 @@ studentSchema.virtual('allGrades', {
     sort: { createdAt: -1 }, // Recent first
     populate: { path: 'subject', select: 'name gradeLevel academicYear' } // Include class context
   }
-});
-
-studentSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    next();
-  }
-
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 // ✅ Fix: Instance method for password comparison

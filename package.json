@@ -1,0 +1,15 @@
+{
+  "name": "sis-y3s1g6",
+  "version": "1.0.0",
+  "description": "Student Information System",
+  "scripts": {
+    "start": "docker-compose up",
+    "stop": "docker-compose down",
+    "dev": "docker-compose up --build",
+    "logs": "docker-compose logs -f",
+    "clean": "docker-compose down -v"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

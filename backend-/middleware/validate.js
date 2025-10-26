@@ -77,10 +77,12 @@ const validateRequest = (schema) => {
 // Joi schema for creating a subject
 const createSubjectSchema = Joi.object({
   name: Joi.string().min(1).max(100).required(),
+  code: Joi.string().max(50).allow('').optional(),
   description: Joi.string().max(500).allow('').optional(),
-  gradeLevel: Joi.number().integer().min(7).max(12).required(),
+  gradeLevel: Joi.number().integer().min(7).max(10).required(),
   academicYear: Joi.string().pattern(/^\d{4}-\d{4}$/).required()
     .messages({ 'string.pattern.base': 'Academic Year must be in YYYY-YYYY format (e.g., 2024-2025)' }),
+  teacher: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).optional(),
   students: Joi.array().items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/)).optional()
 });
 
@@ -91,6 +93,10 @@ const updateSubjectSchema = Joi.object({
   name: Joi.string().min(1).max(100).optional().messages({
     'string.min': 'Name must be at least 1 character',
     'string.max': 'Name must not exceed 100 characters'
+  }),
+  code: Joi.string().max(50).allow('').optional(),
+  description: Joi.string().max(500).allow('').optional().messages({
+    'string.max': 'Description must not exceed 500 characters'
   }),
   archived: Joi.boolean().optional().messages({
     'boolean.base': 'Archived must be a boolean'
@@ -114,7 +120,12 @@ const updateSubjectSchema = Joi.object({
       'any.only': 'Action must be either "add" or "remove"'
     }),
     otherwise: (schema) => schema.optional()
-  })
+  }),
+  gradeLevel: Joi.number().integer().min(7).max(10).optional(),
+  academicYear: Joi.string().pattern(/^\d{4}-\d{4}$/).optional().messages({
+    'string.pattern.base': 'Academic Year must be in YYYY-YYYY format (e.g., 2024-2025)'
+  }),
+  teacher: Joi.string().allow('').pattern(/^[0-9a-fA-F]{24}$/).optional()
 });
 
 console.log('✅ updateSubjectSchema loaded successfully.');

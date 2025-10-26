@@ -30,10 +30,98 @@ const fetchUserByEmail = async (email) => {
   if (user) return { user, role: 'student' };
 
   user = await User.findOne({ email }).select('+password');
-  if (user) return { user, role: 'teacher' };
+  if (user) return { user, role: user.role }; // Use actual role from user document (teacher or superadmin)
 
   return null;
 };
+
+/**
+ * Register handler: Creates new student or teacher account.
+ */
+const register = asyncHandler(async (req, res) => {
+  const { name, email, password, inviteCode, section, lrn, parentName, department } = req.body;
+
+  // Validation
+  if (!name || !email || !password || !inviteCode) {
+    console.warn('🚫 Invalid registration payload:', { name, email, hasInviteCode: !!inviteCode });
+    return res.status(400).json({ message: 'Name, email, password, and invite code are required' });
+  }
+
+  // Determine role based on invite code
+  let role;
+  if (inviteCode === process.env.STUDENT_INVITE_CODE) {
+    role = 'student';
+  } else if (inviteCode === process.env.TEACHER_INVITE_CODE) {
+    role = 'teacher';
+  } else if (inviteCode === process.env.SUPERADMIN_INVITE_CODE) {
+    role = 'superadmin';
+  } else {
+    console.warn('🚫 Invalid invite code provided');
+    return res.status(400).json({ message: 'Invalid invite code' });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  console.log(`📝 Registration attempt for email: ${normalizedEmail}, role: ${role}`);
+
+  // Check if user already exists
+  const existingStudent = await Student.findOne({ email: normalizedEmail });
+  const existingUser = await User.findOne({ email: normalizedEmail });
+
+  if (existingStudent || existingUser) {
+    console.warn(`🚫 Email already registered: ${normalizedEmail}`);
+    return res.status(409).json({ message: 'Email already registered' });
+  }
+
+  try {
+    let newUser;
+
+    if (role === 'student') {
+      // Create student account
+      newUser = await Student.create({
+        name,
+        email: normalizedEmail,
+        password,
+        role: 'student',
+        section,
+        lrn,
+        parentName
+      });
+      console.log(`✅ Student created: ID ${newUser._id}, email: ${normalizedEmail}`);
+    } else {
+      // Create teacher or superadmin account
+      newUser = await User.create({
+        name,
+        email: normalizedEmail,
+        password,
+        role, // 'teacher' or 'superadmin'
+        department
+      });
+      console.log(`✅ ${role.charAt(0).toUpperCase() + role.slice(1)} created: ID ${newUser._id}, email: ${normalizedEmail}`);
+    }
+
+    // Generate tokens
+    const payload = { id: newUser._id, role };
+    const accessToken = generateToken(payload, false);
+    const refreshToken = generateToken(payload, true);
+
+    console.log(`✅ Registration success - Generated tokens for ${role} ID: ${newUser._id}`);
+
+    res.status(201).json({
+      success: true,
+      accessToken,
+      refreshToken,
+      user: {
+        id: newUser._id,
+        role,
+        email: newUser.email,
+        name: newUser.name
+      }
+    });
+  } catch (error) {
+    console.error('❌ Registration error:', error);
+    res.status(500).json({ message: 'Registration failed', error: error.message });
+  }
+});
 
 /**
  * Login handler: Validates creds, generates tokens.
@@ -154,4 +242,4 @@ const refreshTokenHandler = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { login, refreshToken: refreshTokenHandler };
+module.exports = { register, login, refreshToken: refreshTokenHandler };

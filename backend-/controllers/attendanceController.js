@@ -12,7 +12,16 @@ const getSubjectAttendance = asyncHandler(async (req, res) => {
   const { dateFrom, dateTo } = req.query; // Optional date range
 
   const subject = await Subject.findById(subjectId);
-  if (!subject || subject.teacher.toString() !== req.user.id) {
+  if (!subject) {
+    return res.status(404).json({ success: false, error: 'Subject not found' });
+  }
+
+  if (req.role !== 'teacher' && req.role !== 'superadmin') {
+    return res.status(403).json({ success: false, error: 'Access denied' });
+  }
+
+  const subjectTeacherId = subject.teacher ? subject.teacher.toString() : null;
+  if (req.role === 'teacher' && subjectTeacherId && subjectTeacherId !== req.user.id) {
     return res.status(403).json({ success: false, error: 'Access denied' });
   }
 
@@ -61,11 +70,23 @@ const getStudentSubjectAttendance = asyncHandler(async (req, res) => {
   }
 
   // Access: Teacher or enrolled student
-  if (subject.teacher.toString() !== req.user.id && !subject.students.some(s => s.toString() === req.user.id)) {
+  const subjectTeacherId = subject.teacher ? subject.teacher.toString() : null;
+
+  if (
+    req.role === 'teacher' &&
+    subjectTeacherId &&
+    subjectTeacherId !== req.user.id &&
+    !subject.students.some((s) => s.toString() === req.user.id)
+  ) {
     return res.status(403).json({ success: false, error: 'Access denied' });
   }
 
-  if (subject.teacher.toString() !== req.user.id && req.user.id !== studentId) {
+  if (
+    req.role !== 'superadmin' &&
+    subjectTeacherId &&
+    subjectTeacherId !== req.user.id &&
+    req.user.id !== studentId
+  ) {
     return res.status(403).json({ success: false, error: 'Can only view own attendance' });
   }
 
@@ -99,7 +120,16 @@ const markAttendance = asyncHandler(async (req, res) => {
   }
 
   const subject = await Subject.findById(subjectId);
-  if (!subject || subject.teacher.toString() !== req.user.id) {
+  if (!subject) {
+    return res.status(404).json({ success: false, error: 'Subject not found' });
+  }
+
+  if (req.role !== 'teacher' && req.role !== 'superadmin') {
+    return res.status(403).json({ success: false, error: 'Access denied' });
+  }
+
+  const subjectTeacherId = subject.teacher ? subject.teacher.toString() : null;
+  if (req.role === 'teacher' && subjectTeacherId && subjectTeacherId !== req.user.id) {
     return res.status(403).json({ success: false, error: 'Access denied' });
   }
 
@@ -116,7 +146,7 @@ const markAttendance = asyncHandler(async (req, res) => {
     }
 
     // Verify student enrolled
-    if (!subject.students.some(s => s.toString() === studentId)) {
+    if (!subject.students.some(s => (s?._id || s)?.toString() === studentId)) {
       results.errors.push({ studentId, error: 'Student not enrolled' });
       continue;
     }
@@ -148,7 +178,16 @@ const deleteAttendance = asyncHandler(async (req, res) => {
   const { subjectId, date } = req.params; // date as YYYY-MM-DD
 
   const subject = await Subject.findById(subjectId);
-  if (!subject || subject.teacher.toString() !== req.user.id) {
+  if (!subject) {
+    return res.status(404).json({ success: false, error: 'Subject not found' });
+  }
+
+  if (req.role !== 'teacher' && req.role !== 'superadmin') {
+    return res.status(403).json({ success: false, error: 'Access denied' });
+  }
+
+  const subjectTeacherId = subject.teacher ? subject.teacher.toString() : null;
+  if (req.role === 'teacher' && subjectTeacherId && subjectTeacherId !== req.user.id) {
     return res.status(403).json({ success: false, error: 'Access denied' });
   }
 

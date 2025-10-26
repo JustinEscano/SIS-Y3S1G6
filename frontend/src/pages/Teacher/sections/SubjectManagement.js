@@ -1,8 +1,8 @@
 // src/pages/Teacher/sections/SubjectManagement.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faEllipsisV, faArchive, faBoxOpen } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faEllipsisV, faArchive, faBoxOpen, faUsers, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import subjectService from '../../../services/subjectService';
 import LoadingSpinner from '../../../components/loadingSpinner';
 import Pagination from '../../../components/Pagination';
@@ -27,6 +27,29 @@ const SubjectManagement = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 9;
     const [viewMode, setViewMode] = useState('active'); // 'active' or 'archived'
+
+    const viewMeta = useMemo(() => ({
+        active: {
+            title: 'Active Subjects',
+            blurb: 'Subjects you are currently teaching. Manage rosters, attendance, and grades in one place.',
+            accent: 'from-rose-500/90 to-[#81020b]',
+            emptyTitle: 'No active subjects yet',
+            emptyMessage: 'Create a subject to start building your classes and inviting students.',
+            toggleLabel: 'Archive',
+            buttonIcon: faArchive,
+        },
+        archived: {
+            title: 'Archived Subjects',
+            blurb: 'Past classes and completed terms are stored here for easy reference.',
+            accent: 'from-slate-500 to-slate-800',
+            emptyTitle: 'No archived subjects',
+            emptyMessage: 'When you archive a subject it will appear here for historical viewing.',
+            toggleLabel: 'Restore',
+            buttonIcon: faBoxOpen,
+        }
+    }), []);
+
+    const currentViewMeta = viewMeta[viewMode];
 
     // Fetch subjects based on viewMode
     useEffect(() => {
@@ -96,10 +119,10 @@ const SubjectManagement = () => {
         try {
             setError(null); // Clear previous errors
             const payload = {
-                name: newSubject.name,
-                description: newSubject.description || '',
-                gradeLevel: parseInt(newSubject.gradeLevel),
-                academicYear: newSubject.academicYear,
+                name: newSubject.name.trim(),
+                description: newSubject.description?.trim() || '',
+                gradeLevel: Number(newSubject.gradeLevel),
+                academicYear: newSubject.academicYear.trim(),
             };
             if (isEditing && editingSubjectId) {
                 await subjectService.updateSubject(editingSubjectId, payload, token);
@@ -205,133 +228,228 @@ const SubjectManagement = () => {
     };
 
     return (
-        <div className="ml-1 pt-8 pl-0 pr-5 py-5 bg-gray-50 min-h-screen">
+        <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 px-4 pb-16 pt-10 sm:px-8">
             {error && !showModal && (
-                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg flex justify-between items-center">
-                    <span>{error}</span>
-                    <button onClick={() => setError(null)} className="font-bold text-red-700 hover:text-red-900">×</button>
+                <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 shadow-sm">
+                    <div className="flex items-start justify-between gap-4">
+                        <span>{error}</span>
+                        <button onClick={() => setError(null)} className="text-lg font-bold leading-none text-red-500 transition hover:text-red-700">×</button>
+                    </div>
                 </div>
             )}
 
-            {/* Header */}
-            <div className="flex justify-between items-center mb-5">
-                <h1 className="text-3xl font-bold text-gray-800">Subject Management</h1>
-                <button
-                    className="flex items-center gap-2 px-4 py-2 bg-[#81020b] text-white font-semibold rounded-lg hover:bg-[#6c0209] transition-colors duration-200"
-                    onClick={() => { setIsEditing(false); setEditingSubjectId(null); setShowModal(true); }}
-                >
-                    <FontAwesomeIcon icon={faPlus} />
-                    Add New
-                </button>
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="mb-4 flex space-x-2 border-b border-gray-200 pb-2">
-                <button
-                    onClick={() => setViewMode('active')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition ${viewMode === 'active' ? 'bg-red-100 text-[#81020b]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
-                >
-                    Active Subjects
-                </button>
-                <button
-                    onClick={() => setViewMode('archived')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition ${viewMode === 'archived' ? 'bg-gray-200 text-gray-800' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
-                >
-                    Archived Subjects
-                </button>
-            </div>
-
-            {/* Subjects Grid Container */}
-            <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
-                    {viewMode === 'active' ? 'Active' : 'Archived'} Subjects ({subjects.length})
-                </h2>
-                {loading ? (
-                    <LoadingSpinner message={`Loading ${viewMode} subjects...`} />
-                ) : subjects.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">No {viewMode} subjects found.</p>
-                ) : (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-                            {paginatedSubjects.map((subject) => (
-                                <div
-                                    key={subject._id}
-                                    // MODIFIED: className - Removed cursor-not-allowed, added cursor-pointer always
-                                    className={`border rounded-lg p-4 pb-16 hover:shadow-md transition-shadow duration-200 relative min-h-[140px] cursor-pointer ${viewMode === 'archived' ? 'border-gray-300 bg-gray-50 opacity-70' : 'border-gray-200'}`}
-                                    // MODIFIED: onClick - Removed conditional check
-                                    onClick={() => handleCardClick(subject._id)}
-                                >
-                                    <h3 className="text-xl font-semibold text-gray-800 mb-2">{subject.name}</h3>
-                                    <p className="text-xs text-gray-400 mb-4 line-clamp-2">{subject.description}</p>
-                                    <p className="text-sm text-gray-500 mb-4">
-                                        Grade {subject.gradeLevel} - {subject.academicYear || 'N/A'}
-                                    </p>
-
-                                    {/* Actions Row */}
-                                    <div className="absolute bottom-4 left-4 flex space-x-2">
-                                        {/* Edit Button (Only for Active) */}
-                                        {viewMode === 'active' && (
-                                            <button
-                                                title="Edit Subject"
-                                                className="p-2 text-gray-400 hover:text-[#81020b] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#81020b] focus:ring-opacity-50 rounded"
-                                                onClick={(e) => { e.stopPropagation(); handleEditSubject(subject); }}
-                                            >
-                                                <FontAwesomeIcon icon={faEdit} />
-                                            </button>
-                                        )}
-                                        {/* Dropdown Button */}
-                                        <button
-                                            title="More Actions"
-                                            className="p-2 text-gray-400 hover:text-[#81020b] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#81020b] focus:ring-opacity-50 rounded relative"
-                                            onClick={(e) => { e.stopPropagation(); toggleDropdown(subject._id); }}
-                                        >
-                                            <FontAwesomeIcon icon={faEllipsisV} />
-                                            {/* Dropdown Content */}
-                                            {selectedSubjectId === subject._id && (
-                                                <div
-                                                    className="absolute left-0 bottom-full mb-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-32 z-10"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {/* Archive/Unarchive Action - Use DIV */}
-                                                    <div
-                                                        role="button" tabIndex={0}
-                                                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2 cursor-pointer"
-                                                        onClick={(e) => { handleArchiveToggle(subject._id, viewMode === 'active'); }}
-                                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleArchiveToggle(subject._id, viewMode === 'active'); }}
-                                                    >
-                                                        <FontAwesomeIcon icon={viewMode === 'active' ? faArchive : faBoxOpen} className="mr-1 w-4" />
-                                                        {viewMode === 'active' ? 'Archive' : 'Unarchive'}
-                                                    </div>
-                                                    {/* Delete Action - Use DIV (Only if active and no students) */}
-                                                    {viewMode === 'active' && (!subject.students || subject.students.length === 0) && (
-                                                        <div
-                                                            role="button" tabIndex={0}
-                                                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors flex items-center gap-2 cursor-pointer"
-                                                            onClick={(e) => { handleDeleteSubject(subject._id); }}
-                                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDeleteSubject(subject._id); }}
-                                                        >
-                                                            <FontAwesomeIcon icon={faTrash} className="mr-1 w-4" />
-                                                            Delete
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+            <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#81020b] via-[#b6232e] to-[#4b0206] text-white shadow-2xl">
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at top left, rgba(255,255,255,0.6), transparent 55%)' }} aria-hidden="true" />
+                <div className="relative z-10 space-y-6 p-6 md:p-8">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="max-w-2xl space-y-4">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white">
+                                Subject management
+                            </div>
+                            <div className="space-y-2">
+                                <h1 className="text-3xl font-bold text-white md:text-4xl">Organize your classes</h1>
+                                <p className="text-sm text-white/85">
+                                    Switch between active and archived subjects, edit class details, and keep your teaching history tidy. Create new subjects anytime to kick off a fresh term.
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-white/80">
+                                <span className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 backdrop-blur">
+                                    <FontAwesomeIcon icon={faUsers} className="text-white" /> {subjects.length} {viewMode === 'active' ? 'current subjects' : 'archived records'}
+                                </span>
+                                <span className="hidden sm:inline">•</span>
+                                <span className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 backdrop-blur">
+                                    <FontAwesomeIcon icon={faArchive} className="text-white/70" /> Toggle between class states easily
+                                </span>
+                            </div>
                         </div>
-                        {subjects.length > itemsPerPage && (
-                            <Pagination
-                                totalItems={subjects.length}
-                                itemsPerPage={itemsPerPage}
-                                currentPage={currentPage}
-                                onPageChange={setCurrentPage}
-                            />
+                        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                            <button
+                                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/40 bg-white/10 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-white/20"
+                                onClick={() => { setIsEditing(false); setEditingSubjectId(null); setShowModal(true); }}
+                            >
+                                <FontAwesomeIcon icon={faPlus} /> New Subject
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex overflow-hidden rounded-full border border-white/30 bg-white/10 text-sm font-semibold text-white shadow-sm backdrop-blur">
+                            <button
+                                onClick={() => setViewMode('active')}
+                                className={`px-4 py-2 transition ${viewMode === 'active' ? 'bg-white/30 text-white shadow-inner' : 'text-white/70 hover:bg-white/15'}`}
+                            >
+                                Active Subjects
+                            </button>
+                            <button
+                                onClick={() => setViewMode('archived')}
+                                className={`px-4 py-2 transition ${viewMode === 'archived' ? 'bg-white/30 text-white shadow-inner' : 'text-white/70 hover:bg-white/15'}`}
+                            >
+                                Archived Subjects
+                            </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-white/70">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 backdrop-blur">
+                                {viewMode === 'active' ? 'Manage rosters, attendance, and grading' : 'Keep historical subjects ready for reference'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white/90 p-6 shadow-xl ring-1 ring-black/5 sm:p-8">
+                <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-r ${currentViewMeta.accent}`} aria-hidden="true" />
+                <div className="relative z-10 flex flex-col gap-4 pb-6 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 className="text-2xl font-semibold text-gray-900">{currentViewMeta.title}</h2>
+                        <p className="text-sm text-gray-500">{currentViewMeta.blurb}</p>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                        {loading ? (
+                            <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-gray-600">
+                                <span className="h-2 w-2 animate-ping rounded-full bg-[#81020b]/80" /> Loading…
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-gray-600">
+                                <span className="h-2 w-2 rounded-full bg-[#81020b]" /> {subjects.length} {viewMode === 'active' ? 'active classes' : 'archived classes'}
+                            </span>
                         )}
-                    </>
-                )}
-            </div>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-gray-600">
+                            {viewMode === 'active' ? 'Archive' : 'Restore'} subjects from the menu on each card.
+                        </span>
+                    </div>
+                </div>
+
+                <div className="relative z-10">
+                    {loading ? (
+                        <div className="flex justify-center py-12">
+                            <LoadingSpinner message={`Loading ${viewMode} subjects...`} />
+                        </div>
+                    ) : subjects.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50/60 py-16 text-center">
+                            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#81020b]/10 text-[#81020b]">
+                                <FontAwesomeIcon icon={currentViewMeta.buttonIcon} className="text-2xl" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-800">{currentViewMeta.emptyTitle}</h3>
+                            <p className="mt-2 max-w-md text-sm text-gray-500">{currentViewMeta.emptyMessage}</p>
+                            {viewMode === 'active' && (
+                                <button
+                                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#81020b] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[#6c0209]"
+                                    onClick={() => { setIsEditing(false); setEditingSubjectId(null); setShowModal(true); }}
+                                >
+                                    <FontAwesomeIcon icon={faPlus} /> Create your first subject
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                                {paginatedSubjects.map((subject) => {
+                                    const isSelected = selectedSubjectId === subject._id;
+                                    return (
+                                    <article
+                                        key={subject._id}
+                                        onClick={() => handleCardClick(subject._id)}
+                                        className={`group relative flex h-full cursor-pointer flex-col rounded-2xl border bg-white/95 p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl ${viewMode === 'archived' ? 'border-gray-200 bg-gray-50/95' : 'border-gray-100'} ${isSelected ? 'z-50 ring-2 ring-[#81020b]/20 shadow-2xl' : 'hover:z-40 focus-within:z-40'}`}
+                                    >
+                                        <span
+                                            className={`pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition duration-300 ease-out group-hover:opacity-100 ${isSelected ? 'opacity-100' : ''} ${viewMode === 'active' ? 'bg-gradient-to-br from-[#81020b]/12 via-[#b6232e]/8 to-transparent' : 'bg-gradient-to-br from-slate-500/15 via-slate-600/10 to-transparent'}`}
+                                        />
+                                        <div className="relative z-10 flex h-full flex-col gap-6">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl text-lg shadow-sm ${viewMode === 'active' ? 'bg-[#81020b]/10 text-[#81020b]' : 'bg-slate-500/10 text-slate-600'}`}>
+                                                        <FontAwesomeIcon icon={faGraduationCap} />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <h3 className="text-lg font-semibold text-gray-900 transition group-hover:text-[#81020b]">{subject.name}</h3>
+                                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Grade {subject.gradeLevel} • {subject.academicYear || 'Academic year TBD'}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="rounded-full bg-[#81020b]/10 px-3 py-1 text-xs font-semibold text-[#81020b]">
+                                                        {subject.students?.length || 0} learners
+                                                    </span>
+                                                    {viewMode === 'active' && (
+                                                        <button
+                                                            title="Edit Subject"
+                                                            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/70 text-[#81020b]/80 shadow-sm transition hover:border-[#81020b]/40 hover:bg-white hover:text-[#81020b]"
+                                                            onClick={(e) => { e.stopPropagation(); handleEditSubject(subject); }}
+                                                        >
+                                                            <FontAwesomeIcon icon={faEdit} />
+                                                        </button>
+                                                    )}
+                                                    <div className="relative">
+                                                        <button
+                                                            title="More actions"
+                                                            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/70 text-[#81020b]/70 shadow-sm transition hover:border-[#81020b]/40 hover:bg-white hover:text-[#81020b]"
+                                                            onClick={(e) => { e.stopPropagation(); toggleDropdown(subject._id); }}
+                                                        >
+                                                            <FontAwesomeIcon icon={faEllipsisV} />
+                                                        </button>
+                                                        {selectedSubjectId === subject._id && (
+                                                            <div
+                                                                className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <button
+                                                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-600 transition hover:bg-gray-50"
+                                                                    onClick={() => handleArchiveToggle(subject._id, viewMode === 'active')}
+                                                                >
+                                                                    <FontAwesomeIcon icon={viewMode === 'active' ? faArchive : faBoxOpen} className="w-4" />
+                                                                    {viewMode === 'active' ? 'Archive subject' : 'Restore subject'}
+                                                                </button>
+                                                                {viewMode === 'active' && (!subject.students || subject.students.length === 0) && (
+                                                                    <button
+                                                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
+                                                                        onClick={() => handleDeleteSubject(subject._id)}
+                                                                    >
+                                                                        <FontAwesomeIcon icon={faTrash} className="w-4" />
+                                                                        Delete permanently
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <p className="line-clamp-3 text-sm text-gray-600">{subject.description || 'No description provided yet.'}</p>
+
+                                            <div className="mt-auto flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-medium ${viewMode === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'}`}>
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-current"></span>
+                                                        {viewMode === 'active' ? 'In progress' : 'Archived record'}
+                                                    </span>
+                                                    <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-500">
+                                                        Created {subject.createdAt ? new Date(subject.createdAt).toLocaleDateString() : '—'}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleCardClick(subject._id); }}
+                                                    className="inline-flex items-center gap-2 rounded-full border border-[#81020b]/20 bg-white px-3 py-1 text-xs font-semibold text-[#81020b] transition hover:border-[#81020b]/40 hover:bg-[#81020b]/10"
+                                                >
+                                                    Open subject
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </article>
+                                )})}
+                            </div>
+                            {subjects.length > itemsPerPage && (
+                                <div className="mt-6 border-t border-gray-100 pt-4">
+                                    <Pagination
+                                        totalItems={subjects.length}
+                                        itemsPerPage={itemsPerPage}
+                                        currentPage={currentPage}
+                                        onPageChange={setCurrentPage}
+                                    />
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            </section>
 
             {/* Create/Edit Subject Modal */}
             {showModal && (
