@@ -12,7 +12,14 @@ const decodeToken = (token) => {
   }
 };
 
-// Helper: Parse duration string to ms (for expiry calcs)
+// Helper: Check if token is expired (compares exp to current time)
+const isTokenExpired = (token) => {
+  const decoded = decodeToken(token);
+  if (!decoded || !decoded.exp) return true; // No exp = treat as expired
+  return decoded.exp * 1000 < Date.now(); // exp is Unix seconds
+};
+
+// Helper: Parse duration string to ms (for expiry calcs, if needed)
 const parseDurationToMs = (durationStr) => {
   const units = { s: 1000, m: 60e3, h: 3600e3, d: 86400e3 };
   const match = durationStr.match(/(\d+)([smhd])/i);
@@ -36,49 +43,75 @@ const onRefreshed = (token) => {
   refreshSubscribers = [];
 };
 
-// Request Interceptor: Attach token
+// Request Interceptor: Attach token + proactive expiry check
 AppService.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("accessToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      // Optional: Log only in dev
+    // ✅ Fix: Skip for public auth
+    if (config.url.includes('/auth/login') || config.url.includes('/auth/register') || config.url.includes('/auth/refresh')) {
+      delete config.headers.Authorization;
       if (process.env.NODE_ENV === "development") {
+        console.log("🔓 Skipped token for public:", config.url);
+      }
+      return config;
+    }
+
+    if (token) {
+      // 🔍 DEBUG: Log token expiry status before attaching
+      const expired = isTokenExpired(token);
+      if (process.env.NODE_ENV === "development") {
+        console.log("🔑 Token expiry check:", { expired, exp: decodeToken(token)?.exp, now: Date.now() / 1000 });
         console.log("🔑 Attached token to", config.url);
       }
-    } else if (process.env.NODE_ENV === "development") {
-      console.warn("⚠️ No token for", config.url);
+      config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      if (process.env.NODE_ENV === "development") {
+        console.log("⚠️ No token available for protected:", config.url);
+      }
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle auth errors with refresh
+// Response Interceptor: Handle auth errors (401 only for refresh)
 AppService.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     const status = error.response?.status;
+    const url = originalRequest?.url || 'unknown';
+    const isPublic = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh');
 
     if (process.env.NODE_ENV === "development") {
-      console.error("❌ Error for", originalRequest?.url, "- Status:", status);
+      console.error("❌ Error for", url, "- Status:", status, "- Is Public:", isPublic);
+      // 🔍 DEBUG: Log full error response for all errors
+      console.error("🔍 Full error details:", {
+        status,
+        data: error.response?.data,
+        headers: error.response?.headers,
+        url,
+        method: originalRequest?.method,
+        payload: originalRequest?.data ? JSON.stringify(originalRequest.data).slice(0, 200) + '...' : 'none',
+        isPublic
+      });
     }
 
-    if ((status === 401 || status === 403) && !originalRequest._retry) {
+    // ✅ Fix: ONLY refresh/retry on 401 for NON-PUBLIC routes
+    if (status === 401 && !originalRequest._retry && !isPublic) {
       if (process.env.NODE_ENV === "development") {
-        console.log("🔄 Token error (", status, ") - Refreshing...");
+        console.log("🔄 Token expired/invalid (401) - Refreshing... (protected route only)");
       }
 
       if (isRefreshing) {
         if (process.env.NODE_ENV === "development") {
-          console.log("⏳ Queuing request:", originalRequest.url);
+          console.log("⏳ Queuing request:", url);
         }
         return new Promise((resolve) => {
           subscribeTokenRefresh((token) => {
             originalRequest.headers.Authorization = `Bearer ${token}`;
             if (process.env.NODE_ENV === "development") {
-              console.log("🔄 Retrying queued:", originalRequest.url);
+              console.log("🔄 Retrying queued:", url);
             }
             resolve(AppService(originalRequest));
           });
@@ -94,21 +127,25 @@ AppService.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem("refreshToken");
         if (!refreshToken) {
-          throw new Error("No refresh token");
+          throw new Error("No refresh token available");
         }
 
         if (process.env.NODE_ENV === "development") {
           console.log("📤 Refreshing with token preview:", refreshToken.slice(0, 20) + "...");
+          // 🔍 DEBUG: Log refresh token expiry
+          const refreshDecoded = decodeToken(refreshToken);
+          console.log("🔍 Refresh token details:", { exp: refreshDecoded?.exp, expired: isTokenExpired(refreshToken) });
         }
 
-        // Use plain axios to avoid attaching expired access token
+        // Use plain axios to avoid interceptor loop
         const { data } = await axios.post(`${BACKEND_BASE}/auth/refresh`, { refreshToken });
 
         const newAccessToken = data.accessToken || data.token;
         if (!newAccessToken) {
-          throw new Error("No access token in response");
+          throw new Error("No access token in refresh response");
         }
 
+        // Rotate refresh if provided
         if (data.refreshToken) {
           localStorage.setItem("refreshToken", data.refreshToken);
           if (process.env.NODE_ENV === "development") {
@@ -117,6 +154,8 @@ AppService.interceptors.response.use(
         }
 
         localStorage.setItem("accessToken", newAccessToken);
+        localStorage.setItem("role", decodeToken(newAccessToken)?.role || ""); // Optional: Cache role
+
         if (process.env.NODE_ENV === "development") {
           console.log("✅ Updated access token preview:", newAccessToken.slice(0, 20) + "...");
           console.log("📢 Notified", refreshSubscribers.length, "queued requests");
@@ -125,7 +164,7 @@ AppService.interceptors.response.use(
         onRefreshed(newAccessToken);
 
         if (process.env.NODE_ENV === "development") {
-          console.log("🔄 Retrying:", originalRequest.url);
+          console.log("🔄 Retrying original request:", url);
         }
         return AppService(originalRequest);
       } catch (refreshErr) {
@@ -137,25 +176,45 @@ AppService.interceptors.response.use(
           });
         }
 
-        // Clear tokens and logout
+        // Clear tokens and redirect to login
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("role");
-        if (process.env.NODE_ENV === "development") {
-          console.log("🧹 Cleared tokens - Redirecting to /login");
-        }
-        window.location.href = "/login";
+        window.location.href = "/login"; // Or use React Router: navigate('/login')
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;
         if (process.env.NODE_ENV === "development") {
-          console.log("🔄 Refresh ended");
+          console.log("🔄 Refresh cycle ended");
         }
+      }
+    } else if (status === 401 && isPublic) {
+      // 🔍 DEBUG: Explicitly log 401 on public routes to confirm no refresh
+      if (process.env.NODE_ENV === "development") {
+        console.warn("⚠️ 401 on public route (e.g., login) - Likely invalid creds, NOT refreshing:", url, "- Message:", error.response?.data?.message);
       }
     }
 
+    // ✅ New: Handle 403 separately - No retry, custom message
+    if (status === 403) {
+      const errMsg = error.response?.data?.message || "Access denied - Insufficient permissions";
+      if (process.env.NODE_ENV === "development") {
+        console.error("🚫 403 Forbidden on", url, "- Role/Permissions issue");
+      }
+      return Promise.reject({ ...error, message: errMsg });
+    }
+
+    // Handle rate limits (optional)
+    if (status === 429) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("⏱️ Rate limited - Retry in", error.response?.headers?.['retry-after'], "s");
+      }
+      return Promise.reject({ ...error, message: "Too many requests - Please wait" });
+    }
+
+    // Other errors (404, 500, etc.)
     if (process.env.NODE_ENV === "development" && status) {
-      console.log("⚠️ Non-auth error - Rejecting:", status);
+      console.log("⚠️ Non-auth error - Rejecting:", status, "on", url);
     }
     return Promise.reject(error);
   }

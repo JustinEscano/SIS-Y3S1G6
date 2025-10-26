@@ -1,11 +1,11 @@
-// src/services/authService.js (no changes needed; already refactored)
-import axios from "axios";
+// src/services/authService.js (Refactored: Return full backend response structure for context compatibility, added decodeToken export, enhanced error handling)
+import axios from "axios"; // ✅ For plain axios in refresh
 import AppService from "../appService";
 
 // Shared helpers
 const BACKEND_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
 
-const decodeToken = (token) => {
+export const decodeToken = (token) => {
   try {
     return JSON.parse(atob(token.split('.')[1]));
   } catch {
@@ -21,7 +21,7 @@ const parseDurationToMs = (durationStr) => {
   return parseInt(match[1]) * (units[match[2].toLowerCase()] || 1000);
 };
 
-// 🔐 Register
+// 🔐 Register (unchanged, uses AppService)
 const register = async (payload) => {
   try {
     const { data } = await AppService.post("/auth/register", payload);
@@ -32,78 +32,81 @@ const register = async (payload) => {
   }
 };
 
-// 🔑 Login
+// 🔑 Login (Refactored: Return full backend data for context destructuring, store tokens, validate response)
 const login = async ({ email, password }) => {
   try {
     const { data } = await AppService.post("/auth/login", { email, password });
 
-    // Handle backend variations: { token, refreshToken, role } or { accessToken, ... }
-    const accessToken = data.accessToken || data.token;
-    const { refreshToken, role } = data;
-
-    if (!accessToken) {
-      throw new Error("No access token in response");
+    // Validate full response structure
+    if (!data.success || !data.accessToken || !data.refreshToken || !data.user) {
+      throw new Error("Invalid login response structure");
     }
+
+    const { accessToken, refreshToken, user } = data;
 
     // Store in localStorage
     localStorage.setItem("accessToken", accessToken);
-    if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
-    if (role) localStorage.setItem("role", role);
+    localStorage.setItem("refreshToken", refreshToken);
+    localStorage.setItem("role", user.role);
 
     if (process.env.NODE_ENV === "development") {
-      console.log("✅ Login: Stored tokens for role", role);
+      console.log("✅ Login: Stored tokens for role", user.role, "- User:", { id: user.id, email: user.email });
     }
 
-    return { accessToken, refreshToken, role };
+    // Return full backend shape for context
+    return data; // { success: true, accessToken, refreshToken, user: { id, role, email, name } }
   } catch (error) {
-    console.error("Login error:", error.response?.data || error.message);
-    throw error.response?.data || error;
+    const errMsg = error.response?.data?.message || error.message || "Login failed";
+    console.error("Login error:", { message: errMsg, status: error.response?.status });
+    throw new Error(errMsg);
   }
 };
 
-// 🚪 Logout
+// 🚪 Logout (enhanced: Clear all auth-related storage)
 const logout = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("role");
+  // Clear any other auth state if needed
   window.location.href = "/login";
 };
 
-// 🔁 Refresh (manual/proactive use; interceptor handles auto)
+// 🔁 Refresh (refactored: Return full response, handle role sync)
 const refreshToken = async () => {
   try {
-    const refreshToken = localStorage.getItem("refreshToken");
-    if (!refreshToken) {
+    const refreshTokenVal = localStorage.getItem("refreshToken");
+    if (!refreshTokenVal) {
       throw new Error("No refresh token found");
     }
 
-    // Use plain axios to avoid interceptor attaching expired access token
-    const { data } = await axios.post(`${BACKEND_BASE}/auth/refresh`, { refreshToken });
+    // Use plain axios to avoid interceptor loop
+    const { data } = await axios.post(`${BACKEND_BASE}/auth/refresh`, { refreshToken: refreshTokenVal });
 
-    const newAccessToken = data.accessToken || data.token;
-    if (!newAccessToken) {
-      throw new Error("No access token in response");
+    if (!data.success || !data.accessToken || !data.refreshToken || !data.user) {
+      throw new Error("Invalid refresh response structure");
     }
 
-    if (data.refreshToken) {
-      localStorage.setItem("refreshToken", data.refreshToken);
-    }
+    const { accessToken, refreshToken: newRefresh, user } = data;
 
-    localStorage.setItem("accessToken", newAccessToken);
+    // Update storage
+    localStorage.setItem("accessToken", accessToken);
+    localStorage.setItem("refreshToken", newRefresh);
+    localStorage.setItem("role", user.role);
 
     if (process.env.NODE_ENV === "development") {
-      console.log("✅ Manual refresh: New token preview", newAccessToken.slice(0, 20) + "...");
+      console.log("✅ Manual refresh: New token preview", accessToken.slice(0, 20) + "...", "Role:", user.role);
     }
 
-    return newAccessToken;
+    return data; // Full shape for consistency
   } catch (error) {
-    console.error("Manual refresh failed:", error.response?.data || error.message);
+    const errMsg = error.response?.data?.message || error.message || "Refresh failed";
+    console.error("Manual refresh failed:", { message: errMsg, status: error.response?.status });
     logout();
-    throw error;
+    throw new Error(errMsg);
   }
 };
 
-// Proactive check on app load (optional export for use in App.js/AuthProvider)
+// Proactive check on app load (refactored: Integrates service refresh, exports decodeToken)
 const validateAndRefresh = async () => {
   const accessToken = localStorage.getItem("accessToken");
   if (!accessToken) return false;
@@ -112,14 +115,19 @@ const validateAndRefresh = async () => {
   if (!decoded?.exp) return false;
 
   const expMs = decoded.exp * 1000 - Date.now();
-  const bufferMs = parseDurationToMs(process.env.REACT_APP_ACCESS_EXPIRY || "5m"); // Env or default buffer
+  const bufferMs = parseDurationToMs(process.env.REACT_APP_ACCESS_EXPIRY_BUFFER || "5m");
 
   if (expMs < bufferMs) {
     if (process.env.NODE_ENV === "development") {
       console.log("🔄 Proactive refresh: Token expiring soon (", Math.round(expMs / 1000), "s left)");
     }
-    await refreshToken();
-    return true;
+    try {
+      await refreshToken();
+      return true;
+    } catch {
+      logout();
+      return false;
+    }
   }
 
   return true; // Valid
@@ -130,7 +138,8 @@ const authService = {
   login,
   logout,
   refreshToken,
-  validateAndRefresh, // New: For on-load checks
+  validateAndRefresh,
+  decodeToken, // Export for context use
 };
 
 export default authService;

@@ -30,23 +30,29 @@ const handleValidationErrors = (req, res, next) => {
 };
 
 // subject schema
-const createSubjectSchema = Joi.object({
-  name: Joi.string().required().max(100),
-  description: Joi.string().max(500),
-  gradeLevel: Joi.number().integer().min(1).max(12).required(),
-  schoolYear: Joi.string().pattern(/^\d{4}-\d{4}$/).required(), // e.g., 2024-2025
-  students: Joi.array().items(Joi.string()) // ObjectIds as strings
+const updateSubjectSchema = Joi.object({
+  name: Joi.string().min(1).max(100).optional(),
+  description: Joi.string().max(500).allow('').optional(),
+  gradeLevel: Joi.number().integer().min(7).max(12).optional(),
+  academicYear: Joi.string().pattern(/^\d{4}-\d{4}$/).optional(),
+  archived: Joi.boolean().optional(),
+  students: Joi.array().items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/)).optional(),  // Optional, validates as ObjectId strings
+  action: Joi.string().valid('add', 'remove').when('students', {  // Per-field conditional
+    is: Joi.array().min(1),  // Trigger if students exists and has ≥1 item
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(null, '')  // Allow missing/empty for simple edits
+  })
 });
 
-const updateSubjectSchema = Joi.object({
-  name: Joi.string().max(100),
-  description: Joi.string().max(500),
-  gradeLevel: Joi.number().integer().min(1).max(12),
-  schoolYear: Joi.string().pattern(/^\d{4}-\d{4}$/),
-  students: Joi.array().items(Joi.string()).optional(),
-  action: Joi.string().valid('add', 'remove').when('students', { is: Joi.exist(), then: Joi.required() }),
-  archived: Joi.boolean()
+const createSubjectSchema = Joi.object({
+  name: Joi.string().min(1).max(100).required(),
+  description: Joi.string().max(500).allow('').optional(),
+  gradeLevel: Joi.number().integer().min(7).max(12).required(),
+  academicYear: Joi.string().pattern(/^\d{4}-\d{4}$/).required(),
+  students: Joi.array().items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/)).optional()
 });
+
+module.exports = { createSubjectSchema, updateSubjectSchema };
 
 module.exports = {
   registerValidation,

@@ -1,87 +1,75 @@
-// services/studentService.js (Updated: Removed registerStudent and loginStudent functions)
+// services/studentService.js (Fully refactored: Consistent logging, added token param, improved error objects)
 import AppService from "../appService";
 
 // 📋 Get all students
-const getAllStudents = async () => {
+const getAllStudents = async (token) => {
   try {
-    console.log('🔍 Attempting to fetch all students...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + '/students');
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.get("/students");
-    console.log('✅ Fetch successful:', res.status, res.data);
+    console.log('🔍 Fetching all students...');
+    console.log('📡 URL:', '/students');
+    const res = await AppService.get('/students', token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Fetch all students error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error fetching all students:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
 // 👤 Get student by ID
-const getStudentById = async (id) => {
+const getStudentById = async (id, token) => {
   try {
-    console.log('🔍 Attempting to fetch student by ID...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + `/students/${id}`);
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.get(`/students/${id}`);
-    console.log('✅ Fetch successful:', res.status, res.data);
+    console.log('🔍 Fetching student by ID...');
+    console.log('📡 URL:', `/students/${id}`);
+    const res = await AppService.get(`/students/${id}`, token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Fetch student by ID error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error fetching student by ID:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
 // 🔄 Update student
-const updateStudent = async (id, updates) => {
+const updateStudent = async (id, updates, token) => {
   try {
-    console.log('🔍 Attempting to update student...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + `/students/${id}`);
+    console.log('🔍 Updating student...');
+    console.log('📡 URL:', `/students/${id}`);
     console.log('📦 Updates:', updates);
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.put(`/students/${id}`, updates);
-    console.log('✅ Update successful:', res.status, res.data);
+    const res = await AppService.put(`/students/${id}`, updates, token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Update student error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error updating student:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
 // 🗑️ Delete student
-const deleteStudent = async (id) => {
+const deleteStudent = async (id, token) => {
   try {
-    console.log('🔍 Attempting to delete student...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + `/students/${id}`);
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.delete(`/students/${id}`);
-    console.log('✅ Delete successful:', res.status, res.data);
+    console.log('🔍 Deleting student...');
+    console.log('📡 URL:', `/students/${id}`);
+    const res = await AppService.delete(`/students/${id}`, token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Delete student error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error deleting student:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };

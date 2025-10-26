@@ -1,12 +1,19 @@
+// routes/authRoutes.js (Refactored: Added refresh route, no auth middleware for refresh)
 const express = require('express');
 const router = express.Router();
-const { register, login, refreshToken } = require('../controllers/authController'); // Added refreshToken
-const { registerValidation, loginValidation, handleValidationErrors } = require('../middleware/validate');
+const { login, refreshToken } = require('../controllers/authController');
+const { verifyToken } = require('../middleware/authMiddleware'); // For protected routes if needed
 
-router.post('/register', registerValidation, handleValidationErrors, register);
-router.post('/login', loginValidation, handleValidationErrors, login);
+// POST /api/auth/login
+router.post('/login', login);
 
-// ✅ New: Refresh endpoint (no validation needed, as it's token-only)
+// POST /api/auth/refresh (No middleware - public for expired tokens)
 router.post('/refresh', refreshToken);
+
+// Optional: Logout (invalidate token - add blacklist if needed)
+router.post('/logout', verifyToken, (req, res) => {
+  // Add to blacklist (e.g., Redis) here
+  res.json({ success: true, message: 'Logged out' });
+});
 
 module.exports = router;

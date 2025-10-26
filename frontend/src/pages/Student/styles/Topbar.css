@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .teacher-topbar {
+    @apply flex items-center justify-between fixed top-0 left-0 z-40 shadow-md border-b; /* Tailwind layout/shadow */
+    height: 65px;
+    background-color: #81020b;
+    padding: 0 24px;
+    padding-left: 270px;
+    color: #fff; /* Fixed */
+    border-bottom-color: #e5e7eb;
+    font-family: var(--font-body);
+  }
+
+  .topbar-left,
+  .topbar-right {
+    @apply flex items-center gap-4; /* Tailwind flex/gap */
+  }
+
+  .topbar-title {
+    @apply text-white font-semibold text-lg truncate; /* Tailwind text utils */
+    font-family: var(--font-title);
+    font-weight: 600; /* Custom override */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .icon {
+    @apply text-white cursor-pointer transition-all duration-200 hover:scale-110 hover:text-gray-300 w-5 h-5; /* Full Tailwind hovers */
+    font-size: 18px; /* Custom size */
+  }
+
+  .topbar-profile {
+    @apply rounded-full cursor-pointer border-2 border-white object-cover transition-all duration-200 hover:scale-105 w-9 h-9; /* Tailwind borders/sizing */
+  }
+}

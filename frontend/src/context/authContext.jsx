@@ -1,86 +1,100 @@
-// src/context/authContext.jsx (refactored: Adds proactive refresh, loading, retry-friendly)
+// src/context/authContext.jsx (Fixed: Added token state for ProtectedRoute sync, restored in init)
 import React, { createContext, useState, useContext, useEffect } from "react";
-import { jwtDecode } from "jwt-decode"; // Keep for decoding (fallback to native if preferred)
-import authService from "../services/authService"; // Import for validateAndRefresh
+import authService from "../services/authService";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(localStorage.getItem("accessToken"));
-  const [role, setRole] = useState(localStorage.getItem("role"));
-  const [isLoading, setIsLoading] = useState(true); // New: Block UI during init
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem("accessToken") || null);  // NEW: Token state from storage
+  const [role, setRole] = useState(localStorage.getItem("role") || null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Login: Store tokens (unchanged, but now supports refreshToken via authService)
-  const login = (newToken, newRole, refreshToken) => { // Optional refreshToken param
-    setToken(newToken);
-    setRole(newRole);
-    localStorage.setItem("accessToken", newToken);
-    localStorage.setItem("role", newRole);
-    if (refreshToken) localStorage.setItem("refreshToken", refreshToken); // Handle if provided
-    if (process.env.NODE_ENV === "development") {
-      console.log("✅ Login: Stored tokens for role", newRole);
+  // Refactored Login: Centralized - Calls service, stores via service, updates state from response
+  const login = async (credentials) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Validate creds early
+      if (!credentials?.email || !credentials?.password) {
+        throw new Error("Email and password are required");
+      }
+
+      const response = await authService.login(credentials);
+      const { accessToken, refreshToken, user: userData } = response;
+
+      if (!accessToken || !refreshToken || !userData?.role) {
+        throw new Error("Login succeeded but missing tokens or role");
+      }
+
+      // Service should store tokens; here update state
+      const { id, role: loginRole, email, name } = userData;
+      setUser({ id, role: loginRole, email, name });
+      setRole(loginRole);
+      setToken(accessToken);  // NEW: Sync token to state
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("✅ AuthContext: Login success - User", { id, role: loginRole, email });
+      }
+
+      return { success: true, role: loginRole, user: userData };
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Login failed';
+      setError(msg);
+      if (process.env.NODE_ENV === "development") {
+        console.error("❌ AuthContext login error:", { message: msg, fullErr: err });
+      }
+      throw new Error(msg); // Re-throw for component handling
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Logout: Clear all (unchanged)
   const logout = () => {
-    setToken(null);
+    authService.logout();
+    setUser(null);
+    setToken(null);  // NEW: Clear token state
     setRole(null);
-    setIsLoading(false); // Ensure no loading loop
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("role");
-    window.location.href = "/login";
+    setError(null);
+    setIsLoading(false);
+    // Optional: Redirect via navigate if passed as prop
   };
 
-  // Init: Proactive validate/refresh on mount (handles refreshToken too)
+  // Init useEffect: Restore from localStorage on mount
   useEffect(() => {
     const initAuth = async () => {
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        // Decode & check expiry (your old logic)
-        const decoded = jwtDecode(token);
-        if (decoded.exp * 1000 < Date.now()) {
-          if (process.env.NODE_ENV === "development") {
-            console.log("🔄 Access token expired - Attempting refresh...");
-          }
-          // New: Use authService for proactive refresh (tries refreshToken)
-          const refreshed = await authService.validateAndRefresh();
-          if (!refreshed) {
-            logout();
-            return;
-          }
-          // Re-decode post-refresh
-          const newDecoded = jwtDecode(localStorage.getItem("accessToken"));
-          if (newDecoded.exp * 1000 < Date.now()) {
-            logout();
-            return;
+        const storedToken = localStorage.getItem("accessToken");
+        const storedRole = localStorage.getItem("role");
+        if (storedToken && storedRole) {
+          // Optional: Validate token via service.refresh() or decode
+          const decoded = authService.decodeToken(storedToken); // Assume service has helper
+          if (decoded?.role === storedRole) {
+            setToken(storedToken);  // NEW: Restore token to state
+            setRole(storedRole);
+            setUser({ id: decoded.id, role: storedRole });
+            if (process.env.NODE_ENV === "development") {
+              console.log("✅ AuthContext: Restored session", { role: storedRole, token: 'present' });
+            }
+          } else {
+            authService.logout();
+            setToken(null);
           }
         }
-        // Sync role if valid
-        setRole(localStorage.getItem("role") || null);
-      } catch (error) {
-        console.error("Auth decode failed:", error);
-        logout();
+      } catch (err) {
+        console.error("❌ AuthContext init error:", err);
+        authService.logout();
+        setToken(null);
       } finally {
         setIsLoading(false);
       }
     };
-
     initAuth();
-  }, [token]); // Keep dep on token for changes
+  }, []);
 
-  const value = {
-    token,
-    role,
-    isLoading, // New: Expose for RoutesProtect
-    login,
-    logout,
-  };
+  const value = { user, token, role, isLoading, error, login, logout };  // UPDATED: +token
 
   return (
     <AuthContext.Provider value={value}>
@@ -89,5 +103,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Custom hook (unchanged)
 export const useAuth = () => useContext(AuthContext);

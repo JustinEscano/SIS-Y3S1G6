@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { AuthProvider } from "./context/authContext";
 import Login from "./pages/Login/Login";
 import TeacherRoutes from "./pages/Teacher/Route";
-import StudentDashboard from "./pages/Student/Dashboard";
+import StudentRoutes from "./pages/Student/StudentRoutes";
 import RoutesProtect from "./components/routesProtect";
 
 function App() {
@@ -27,10 +27,10 @@ function App() {
           />
 
           <Route
-            path="/student"
+            path="/student/*"
             element={
               <RoutesProtect allowedRoles={["student"]}>
-                <StudentDashboard />
+                <StudentRoutes />
               </RoutesProtect>
             }
           />

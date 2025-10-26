@@ -10,6 +10,8 @@ import Analytics from "./sections/Analytics";
 import SubjectStudents from "./sections/SubjectStudents";
 import SubjectGrades from "./sections/SubjectGrades";
 import StudentAnalytics from "./sections/StudentAnalytics"; // New import
+import SubjectAttendance from "./sections/SubjectAttendance";
+import StudentAttendanceHistory from "./sections/StudentAttendanceHistory";
 
 function TeacherRoutes() {
   return (
@@ -23,6 +25,8 @@ function TeacherRoutes() {
         <Route path="students" element={<StudentManagement />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="analytics" element={<Analytics />} />
+        <Route path="subjects/:id/attendance" element={<SubjectAttendance />} />
+        <Route path="subjects/:id/attendance/students/:studentId" element={<StudentAttendanceHistory />} />
       </Routes>
     </TeacherLayout>
   );

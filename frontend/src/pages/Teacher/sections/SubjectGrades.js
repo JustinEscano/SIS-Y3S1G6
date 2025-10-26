@@ -2,10 +2,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faExclamationTriangle, faDownload, faUpload, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faExclamationTriangle, faDownload, faUpload, faEye } from '@fortawesome/free-solid-svg-icons';
 import gradeService from '../../../services/gradeService'; // Adjust path as needed
 import subjectService from '../../../services/subjectService'; // Import for subject fetch
 import { useAuth } from '../../../context/authContext'; // Assume auth context for token
+import LoadingSpinner from '../../../components/loadingSpinner'; // Adjust path as needed
+import Pagination from '../../../components/Pagination'; // Adjust path as needed
 
 const SubjectGrades = () => {
   const { id: subjectId } = useParams();
@@ -18,6 +20,8 @@ const SubjectGrades = () => {
   const [exporting, setExporting] = useState(false); // Loading for export
   const [importing, setImporting] = useState(false); // Loading for import
   const fileInputRef = useRef(null); // Ref for file input
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     if (!subjectId || !token) {
@@ -62,6 +66,16 @@ const SubjectGrades = () => {
     };
     fetchData();
   }, [subjectId, token]);
+
+  // Reset pagination on grades change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [grades]);
+
+  const paginatedGrades = grades.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   // Handle export grades as XLSX
   const handleExport = async () => {
@@ -121,10 +135,12 @@ const SubjectGrades = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl text-red-500 mr-2" />
-        <span className="text-lg">Loading grades...</span>
-      </div>
+      <LoadingSpinner 
+        message="Loading grades..." 
+        size="lg" 
+        color="red" 
+        fullScreen={false} 
+      />
     );
   }
 
@@ -156,23 +172,31 @@ const SubjectGrades = () => {
 
   return (
     <div className="p-6">
-      {/* Subject Header - Full Display */}
-      <div className="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          {subjectInfo?.name || 'Unknown Subject'} - Grades
-        </h1>
-        <p className="text-lg text-gray-600 mb-2">
-          Grade {subjectInfo?.gradeLevel || 'N/A'} - {subjectInfo?.schoolYear || 'N/A'}
-        </p>
-        <p className="text-gray-500 mb-2">
-          {subjectInfo?.description || 'No description available'}
-        </p>
-        {/* Additional Subject Info if Available */}
-        {subjectInfo && (
-          <div className="text-sm text-gray-400">
-            ID: {subjectInfo._id || 'N/A'} | Enrolled Students: {grades.length || 0}
-          </div>
-        )}
+      {/* Subject Header - Full Display with Back Button in Top Right */}
+      <div className="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            {subjectInfo?.name || 'Unknown Subject'} - Grades
+          </h1>
+          <p className="text-lg text-gray-600 mb-2">
+            Grade {subjectInfo?.gradeLevel || 'N/A'} - {subjectInfo?.schoolYear || 'N/A'}
+          </p>
+          <p className="text-gray-500 mb-2">
+            {subjectInfo?.description || 'No description available'}
+          </p>
+          {/* Additional Subject Info if Available */}
+          {subjectInfo && (
+            <div className="text-sm text-gray-400">
+              ID: {subjectInfo._id || 'N/A'} | Enrolled Students: {grades.length || 0}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => navigate(`/teacher/subjects/${subjectId}`)} // Fixed: Absolute path
+          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition self-start"
+        >
+          Back to Students
+        </button>
       </div>
 
       {/* Actions: Export/Import Buttons */}
@@ -184,7 +208,7 @@ const SubjectGrades = () => {
         >
           {exporting ? (
             <>
-              <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+              <FontAwesomeIcon icon={faDownload} className="animate-spin mr-2" />
               Exporting...
             </>
           ) : (
@@ -197,7 +221,7 @@ const SubjectGrades = () => {
         <label className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-md cursor-pointer disabled:opacity-50">
           {importing ? (
             <>
-              <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+              <FontAwesomeIcon icon={faUpload} className="animate-spin mr-2" />
               Importing...
             </>
           ) : (
@@ -242,7 +266,7 @@ const SubjectGrades = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {grades.map((gradeItem) => {
+              {paginatedGrades.map((gradeItem) => {
                 // Cross-Reference: Grade item has student populated and grade fields
                 const student = gradeItem.student || { name: 'N/A', email: 'N/A' };
                 const gradeId = gradeItem._id;
@@ -273,18 +297,16 @@ const SubjectGrades = () => {
               })}
             </tbody>
           </table>
+          {grades.length > itemsPerPage && (
+            <Pagination
+              totalItems={grades.length}
+              itemsPerPage={itemsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </div>
       )}
-
-      {/* Back Link */}
-      <div className="mt-6 flex justify-start">
-        <button
-          onClick={() => navigate(`/teacher/subjects/${subjectId}`)} // Fixed: Absolute path
-          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-        >
-          Back to Students
-        </button>
-      </div>
     </div>
   );
 };

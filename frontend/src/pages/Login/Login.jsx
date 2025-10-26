@@ -1,54 +1,89 @@
-// components/Login.jsx (Refactored: Handles refreshToken, adds loading state, fixes destructuring)
+// components/Login.jsx (Minor refactor: Simplified error handling, added success toast placeholder, ensured no duplicates)
 import React, { useState, useContext } from "react";
 import { AuthContext } from "../../context/authContext";
 import { useNavigate } from "react-router-dom";
-import authService from "../../services/authService";
 
 import LoginForm from "./LoginForm";
 import RegisterForm from "./RegisterForm";
 import logo from "../../assets/images/logo.png";
 import bg from "../../assets/images/login-bg.png";
-import '../Login/LoginPage.css'; // Import hybrid CSS
+import '../Login/LoginPage.css';
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [localError, setLocalError] = useState(""); // Local for form-specific
   const [isLogin, setIsLogin] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false); // New: Local loading for form submit
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login } = useContext(AuthContext);
+  const { login, error: contextError, isLoading: contextLoading } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setLocalError("");
+
+    // Guard: Prevent submit if already loading
+    if (isSubmitting || contextLoading) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("⚠️ Submit guarded - Already processing");
+      }
+      return;
+    }
+
+    // Trim & validate locally
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    if (!trimmedEmail || !trimmedPassword) {
+      setLocalError("Please enter email and password");
+      return;
+    }
+
+    // Payload log
+    if (process.env.NODE_ENV === "development") {
+      console.log("📤 Login payload:", { email: trimmedEmail, password: "***" });
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Destructure refreshToken too (from authService)
-      const { accessToken, refreshToken, role } = await authService.login({ email, password });
-      login(accessToken, role, refreshToken); // Pass refreshToken to context
+      // Call context login (handles service, storage, state)
+      const result = await login({ email: trimmedEmail, password: trimmedPassword });
 
-      // Redirect based on role
-      if (role === "student") {
-        navigate("/student");
-      } else if (role === "teacher" || role === "superadmin") {
-        navigate("/teacher");
-      } else {
-        navigate("/login");
+      if (result.success) {
+        // Optional: Success feedback (e.g., toast)
+        if (process.env.NODE_ENV === "development") {
+          console.log("✅ Login component: Redirecting for role", result.role);
+        }
+
+        // Redirect based on role
+        const redirectRole = result.role || "unknown";
+        if (redirectRole === "student") {
+          navigate("/student", { replace: true });
+        } else if (redirectRole === "teacher" || redirectRole === "superadmin") {
+          navigate("/teacher", { replace: true });
+        } else {
+          navigate("/login", { replace: true }); // Fallback
+        }
       }
     } catch (err) {
-      const msg = err.response?.data?.message || "Invalid email or password";
-      setError(msg);
+      // Context already sets error; enhance if needed
+      const msg = err.message || "Invalid email or password";
+      setLocalError(msg);
+      if (process.env.NODE_ENV === "development") {
+        console.error("❌ Login submit error:", { message: msg, fullErr: err });
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Combined error: Local + context (prioritize local)
+  const displayError = localError || contextError;
+
   return (
     <div className="login-page">
-      {/* Left Section */}
+      {/* Left Section - unchanged */}
       <div className="login-left">
         <div className="login-left-content">
           <img src={logo} alt="School Logo" className="school-logo" />
@@ -61,7 +96,7 @@ function Login() {
         </div>
       </div>
 
-      {/* Right Section */}
+      {/* Right Section - unchanged */}
       <div className="login-right">
         <div className={`absolute inset-0 flex justify-center items-center transition-all duration-500 ease-in-out transform ${isLogin ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-full'}`}>
           <LoginForm
@@ -70,8 +105,8 @@ function Login() {
             password={password}
             setPassword={setPassword}
             handleSubmit={handleSubmit}
-            error={error}
-            isSubmitting={isSubmitting} // Pass to form for button disable/spinner
+            error={displayError}
+            isSubmitting={isSubmitting || contextLoading}
             switchMode={() => setIsLogin(false)}
           />
         </div>

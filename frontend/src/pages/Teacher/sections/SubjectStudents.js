@@ -1,34 +1,39 @@
-// sections/SubjectStudents.jsx (Updated: Replaced window.confirm with delete confirmation modal)
+// sections/SubjectStudents.jsx (Updated: Added "Manage Attendance" button next to "Manage Grades")
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faExclamationTriangle, faPlus, faSearch, faTimes, faChartLine, faArrowLeft, faTrash, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
-import subjectService from '../../../services/subjectService'; // Adjust path as needed
-import studentService from '../../../services/studentService'; // Import studentService for fetching all students
+import { faExclamationTriangle, faPlus, faSearch, faTimes, faChartLine, faArrowLeft, faTrash, faExclamationCircle, faSpinner, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
+import subjectService from '../../../services/subjectService';
+import studentService from '../../../services/studentService';
+import LoadingSpinner from '../../../components/loadingSpinner';
+import Pagination from '../../../components/Pagination';
 
 const SubjectStudents = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation(); // Added for potential legacy /students handling
-  const [students, setStudents] = useState([]); // Enrolled students (used for filtering/checks)
+  const location = useLocation();
+  const [students, setStudents] = useState([]); // Enrolled students
   const [subjectInfo, setSubjectInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false); // New: Delete confirmation modal
-  const [studentToDelete, setStudentToDelete] = useState(null); // New: Track student for deletion
-  const [allStudents, setAllStudents] = useState([]); // List of all available students
-  const [filteredStudents, setFilteredStudents] = useState([]); // Filtered list for search + type
-  const [searchQuery, setSearchQuery] = useState(''); // Search input
-  const [filterType, setFilterType] = useState('All'); // Filter: All, Enrolled, Not Enrolled
-  const [enrolling, setEnrolling] = useState(false); // Loading state for enrollment
-  const [removing, setRemoving] = useState({}); // Per-student removal loading state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState(null);
+  const [allStudents, setAllStudents] = useState([]); // All available students
+  const [filteredStudents, setFilteredStudents] = useState([]); // Filtered for modal
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('All');
+  const [enrolling, setEnrolling] = useState(false);
+  const [removing, setRemoving] = useState({});
+  const [allStudentsLoading, setAllStudentsLoading] = useState(false); // New: Modal fetch loading
+  const [allStudentsError, setAllStudentsError] = useState(null); // Modal error
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     console.log('🗺️ Current subjectId from params:', id);
-    console.log('🗺️ Current pathname:', location.pathname); // Debug current path
+    console.log('🗺️ Current pathname:', location.pathname);
 
-    // Legacy Redirect: If somehow accessed via old /students suffix, redirect to clean /subjects/:id
     if (location.pathname.endsWith('/students')) {
       console.log('🔄 Redirecting from legacy /students path');
       navigate(location.pathname.replace('/students', ''), { replace: true });
@@ -37,7 +42,6 @@ const SubjectStudents = () => {
 
     const fetchStudents = async () => {
       if (!id) {
-        console.warn('⚠️ No subjectId provided - redirecting or showing error');
         setError('Invalid subject ID. Please select a valid subject.');
         setLoading(false);
         return;
@@ -48,23 +52,27 @@ const SubjectStudents = () => {
         setError(null);
         console.log('🚀 Starting fetch for subjectId:', id);
         const response = await subjectService.getSubjectStudents(id);
-        console.log('📥 Raw response structure:', JSON.stringify(response, null, 2)); // Full log for debugging
-        console.log('📥 Response keys:', Object.keys(response)); // Top-level keys
+        console.log('📥 Raw response structure:', JSON.stringify(response, null, 2));
+        console.log('📥 Response keys:', Object.keys(response));
 
-        // Fixed Extraction: Backend returns { success, count, data: { subject, students } }
-        const apiData = response.data || response; // response is already res.data from service
-        const innerData = apiData.data || apiData; // Dive into 'data' nesting
-        const extractedSubject = innerData.subject || innerData; // Fallback if not nested further
+        const apiData = response.data || response;
+        const innerData = apiData.data || apiData;
+        const extractedSubject = innerData.subject || innerData;
         const extractedStudents = innerData.students || [];
 
-        console.log('📋 Extracted subject keys:', Object.keys(extractedSubject)); // Debug keys
-        console.log('📋 Extracted subject name:', extractedSubject.name); // Confirm field access
-        console.log('📋 Extracted students length:', extractedStudents.length); // Confirm students
+        console.log('📋 Extracted subject keys:', Object.keys(extractedSubject));
+        console.log('📋 Extracted subject name:', extractedSubject.name);
+        console.log('📋 Extracted students length:', extractedStudents.length);
 
         setStudents(extractedStudents);
         setSubjectInfo(extractedSubject);
       } catch (err) {
-        console.error('💥 Fetch error details:', { status: err.response?.status, data: err.response?.data, message: err.message });
+        console.error('💥 Fetch error details:', { 
+          status: err.response?.status, 
+          data: err.response?.data, 
+          message: err.message,
+          fullError: err
+        });
         setError(err.response?.data?.message || err.message || 'Failed to fetch students');
       } finally {
         setLoading(false);
@@ -75,43 +83,77 @@ const SubjectStudents = () => {
     fetchStudents();
   }, [id, navigate, location.pathname]);
 
-  // Apply filters (search + type) to update filteredStudents
+  // Reset pagination on students change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [students]);
+
+  // FIXED: Auto-apply filters when dependencies change (handles async setAllStudents)
+  useEffect(() => {
+    applyFilters();
+  }, [allStudents, searchQuery, filterType, students]);
+
+  const paginatedStudents = students.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Apply filters (no longer called directly—useEffect handles)
   const applyFilters = () => {
     let temp = [...allStudents];
 
-    // Apply type filter
     if (filterType === 'Enrolled') {
       temp = temp.filter(s => students.some(en => en._id === s._id));
     } else if (filterType === 'Not Enrolled') {
       temp = temp.filter(s => !students.some(en => en._id === s._id));
     }
 
-    // Apply search
     if (searchQuery) {
       temp = temp.filter(student =>
         student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.lrn.toLowerCase().includes(searchQuery.toLowerCase())
+        (student.lrn && student.lrn.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
 
     setFilteredStudents(temp);
+    console.log('🔍 applyFilters: allStudents length:', allStudents.length, '→ filtered length:', temp.length); // Temp debug
   };
 
-  // Fetch all students when modal opens
+  // Fetch all students when modal opens (Updated: Set loading, no direct applyFilters)
   const fetchAllStudents = async () => {
     try {
+      setAllStudentsError(null);
+      setAllStudentsLoading(true);
       console.log('🚀 Fetching all students for enrollment');
       const response = await studentService.getAllStudents();
-      // Fixed Extraction: Assuming studentService returns { success, count, students } or similar
+      console.log('📥 Raw allStudents response:', JSON.stringify(response, null, 2));
+
       const apiData = response.data || response;
-      const innerData = apiData.data || apiData.students || apiData; // Flexible for student API structure
-      const fetchedStudents = Array.isArray(innerData) ? innerData : (innerData.students || []);
+      let fetchedStudents = [];
+      if (apiData.students && Array.isArray(apiData.students)) {
+        fetchedStudents = apiData.students;
+      } else if (apiData.data && Array.isArray(apiData.data)) {
+        fetchedStudents = apiData.data;
+      } else if (apiData.data && apiData.data.students && Array.isArray(apiData.data.students)) {
+        fetchedStudents = apiData.data.students;
+      } else if (Array.isArray(apiData)) {
+        fetchedStudents = apiData;
+      }
+      console.log('📋 Extracted allStudents length:', fetchedStudents.length, 'Sample:', fetchedStudents.slice(0, 2));
+
       setAllStudents(fetchedStudents);
-      applyFilters(); // Initial filter application
+      // No applyFilters here—useEffect will trigger after setAllStudents settles
     } catch (err) {
-      console.error('💥 Fetch all students error:', err);
-      setError('Failed to fetch available students');
+      console.error('💥 Fetch all students error:', { 
+        status: err.response?.status, 
+        data: err.response?.data, 
+        message: err.message,
+        fullError: err
+      });
+      setAllStudentsError(err.response?.data?.message || err.message || 'Failed to load students. Please try again.');
+    } finally {
+      setAllStudentsLoading(false);
     }
   };
 
@@ -119,13 +161,13 @@ const SubjectStudents = () => {
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-    applyFilters();
+    // useEffect will re-apply
   };
 
   // Handle filter type change
   const handleFilterChange = (e) => {
     setFilterType(e.target.value);
-    applyFilters();
+    // useEffect will re-apply
   };
 
   // Handle enrolling a student to the subject
@@ -138,18 +180,21 @@ const SubjectStudents = () => {
       const response = await subjectService.addStudent(id, { studentId });
       console.log('📥 Enroll response:', response);
 
-      // Refresh students list with fixed parsing
       const refreshedResponse = await subjectService.getSubjectStudents(id);
       const apiData = refreshedResponse.data || refreshedResponse;
       const innerData = apiData.data || apiData;
       setStudents(innerData.students || []);
 
-      // Close modal
       setShowAddModal(false);
       setSearchQuery('');
       setFilteredStudents([]);
     } catch (err) {
-      console.error('💥 Enroll error:', err);
+      console.error('💥 Enroll error:', { 
+        status: err.response?.status, 
+        data: err.response?.data, 
+        message: err.message,
+        fullError: err
+      });
       setError(err.response?.data?.message || err.message || 'Failed to enroll student');
     } finally {
       setEnrolling(false);
@@ -172,35 +217,32 @@ const SubjectStudents = () => {
       const response = await subjectService.removeStudentFromSubject(id, studentToDelete._id);
       console.log('📥 Remove response:', response);
 
-      // Refresh students list with fixed parsing
       const refreshedResponse = await subjectService.getSubjectStudents(id);
       const apiData = refreshedResponse.data || refreshedResponse;
       const innerData = apiData.data || apiData;
       setStudents(innerData.students || []);
 
-      // Close modal
       setShowDeleteModal(false);
       setStudentToDelete(null);
     } catch (err) {
-      console.error('💥 Remove error:', err);
+      console.error('💥 Remove error:', { 
+        status: err.response?.status, 
+        data: err.response?.data, 
+        message: err.message,
+        fullError: err
+      });
       setError(err.response?.data?.message || err.message || 'Failed to remove student');
     } finally {
       setRemoving(prev => ({ ...prev, [studentToDelete._id]: false }));
     }
   };
 
-  // Check if a student is enrolled
   const isStudentEnrolled = (studentId) => {
     return students.some(student => student._id === studentId);
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl text-red-500 mr-2" />
-        <span className="text-lg">Loading students...</span>
-      </div>
-    );
+    return <LoadingSpinner message="Loading students..." size="lg" color="red" fullScreen={false} />;
   }
 
   if (error) {
@@ -212,16 +254,10 @@ const SubjectStudents = () => {
         </div>
         <p className="text-gray-600 mb-6">{error}</p>
         <div className="flex space-x-4">
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-          >
+          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
             Retry
           </button>
-          <button
-            onClick={() => navigate('/teacher/subjects')}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-          >
+          <button onClick={() => navigate('/teacher/subjects')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
             Back to Subjects
           </button>
         </div>
@@ -231,7 +267,7 @@ const SubjectStudents = () => {
 
   return (
     <div className="p-6">
-      {/* Subject Header - Aligned with Mockup, Switched Back Button to Right */}
+      {/* Subject Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold text-gray-800">
@@ -239,7 +275,7 @@ const SubjectStudents = () => {
           </h1>
           <button 
             className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors duration-200"
-            onClick={() => navigate('/teacher/subjects')} // Back to subjects list
+            onClick={() => navigate('/teacher/subjects')}
           >
             <FontAwesomeIcon icon={faArrowLeft} />
             Back to Subjects
@@ -247,7 +283,7 @@ const SubjectStudents = () => {
         </div>
         <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
           <p className="text-lg text-gray-600 mb-2">
-            Grade {subjectInfo?.gradeLevel || 'N/A'} - {subjectInfo?.schoolYear || 'N/A'}
+            Grade {subjectInfo?.gradeLevel || 'N/A'} - {subjectInfo?.academicYear || 'N/A'}
           </p>
           <p className="text-gray-500">
             {subjectInfo?.description || 'No description available'}
@@ -255,7 +291,7 @@ const SubjectStudents = () => {
         </div>
       </div>
 
-      {/* Students Section - With Buttons Row (Manage Grades to the left of Add) */}
+      {/* Students Section */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">Students ({students.length})</h2>
         <div className="flex space-x-4">
@@ -267,9 +303,16 @@ const SubjectStudents = () => {
             Manage Grades
           </button>
           <button
+            onClick={() => navigate(`attendance`)}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md"
+          >
+            <FontAwesomeIcon icon={faCalendarCheck} className="mr-2" />
+            Manage Attendance
+          </button>
+          <button
             onClick={() => {
               setShowAddModal(true);
-              fetchAllStudents(); // Fetch on open
+              fetchAllStudents(); // Starts loading
             }}
             className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition shadow-md"
           >
@@ -299,18 +342,16 @@ const SubjectStudents = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade Level</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LRN</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {students.map((student, index) => (
+              {paginatedStudents.map((student, index) => (
                 <tr key={student._id || index} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Grade {student.gradeLevel}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.section}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.lrn}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -331,10 +372,18 @@ const SubjectStudents = () => {
               ))}
             </tbody>
           </table>
+          {students.length > itemsPerPage && (
+            <Pagination
+              totalItems={students.length}
+              itemsPerPage={itemsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </div>
       )}
 
-      {/* Enroll Existing Student Modal - Updated with Searchable List, Filter Dropdown, and Enrolled Check */}
+      {/* Enroll Existing Student Modal - Updated: Loading state during fetch */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto shadow-xl">
@@ -346,7 +395,8 @@ const SubjectStudents = () => {
               <select
                 value={filterType}
                 onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                disabled={allStudentsLoading || enrolling || !!allStudentsError}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
               >
                 <option value="All">All Students</option>
                 <option value="Enrolled">Enrolled</option>
@@ -362,25 +412,42 @@ const SubjectStudents = () => {
                 placeholder="Search by name, email, or LRN..."
                 value={searchQuery}
                 onChange={handleSearchChange}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                disabled={allStudentsLoading || enrolling || !!allStudentsError}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
               />
-              {searchQuery && (
+              {searchQuery && !allStudentsLoading && (
                 <button
                   type="button"
                   onClick={() => {
                     setSearchQuery('');
-                    applyFilters();
                   }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  disabled={allStudentsLoading || enrolling}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
                 >
                   <FontAwesomeIcon icon={faTimes} />
                 </button>
               )}
             </div>
 
-            {/* Students List */}
+            {/* Students List / Loading / Error */}
             <div className="max-h-64 overflow-y-auto mb-4">
-              {filteredStudents.length === 0 ? (
+              {allStudentsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <FontAwesomeIcon icon={faSpinner} className="animate-spin text-red-500 mr-2" />
+                  <p className="text-gray-500">Loading students...</p>
+                </div>
+              ) : allStudentsError ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-md text-center">
+                  <FontAwesomeIcon icon={faExclamationCircle} className="text-red-500 text-xl mb-2" />
+                  <p className="text-sm text-red-700 mb-2">{allStudentsError}</p>
+                  <button
+                    onClick={fetchAllStudents}
+                    className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition"
+                  >
+                    Retry Load
+                  </button>
+                </div>
+              ) : filteredStudents.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">
                   {searchQuery ? 'No students found matching your search.' : 'No students available.'}
                 </p>
@@ -431,6 +498,8 @@ const SubjectStudents = () => {
                   setSearchQuery('');
                   setFilteredStudents([]);
                   setFilterType('All');
+                  setAllStudentsError(null);
+                  setAllStudentsLoading(false);
                 }}
                 disabled={enrolling}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition disabled:opacity-50"
@@ -442,7 +511,7 @@ const SubjectStudents = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal (unchanged) */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">

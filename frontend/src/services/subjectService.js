@@ -1,174 +1,149 @@
-// services/subjectService.js (Updated: Added removeStudentFromSubject)
+// services/subjectService.js (Fully refactored: Consistent token param, streamlined logging, fixed addStudent payload handling)
 import AppService from "../appService";
 
 // 📚 Get all subjects for the authenticated teacher
-const getTeacherSubjects = async () => {
+const getTeacherSubjects = async (token) => {
   try {
-    console.log('🔍 Attempting to fetch teacher subjects...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + '/subjects');
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.get("/subjects");
-    console.log('✅ Fetch successful:', res.status, res.data);
+    console.log('🔍 Fetching teacher subjects...');
+    console.log('📡 URL:', '/subjects');
+    const res = await AppService.get('/subjects', token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Fetch teacher subjects error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error fetching teacher subjects:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
 // 📚 Get all subjects for the authenticated student
-const getStudentSubjects = async () => {
+const getStudentSubjects = async (token) => {
   try {
-    console.log('🔍 Attempting to fetch student subjects...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + '/subjects/student');
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.get("/subjects/student");
-    console.log('✅ Fetch successful:', res.status, res.data);
+    console.log('🔍 Fetching student subjects...');
+    console.log('📡 URL:', '/subjects/student');
+    const res = await AppService.get('/subjects/student', token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Fetch student subjects error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error fetching student subjects:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
-// ➕ Create a new subject (for teachers)
-const createSubject = async (payload) => {
+// ➕ Create a new subject
+const createSubject = async (payload, token) => {
   try {
-    console.log('🔍 Attempting to create subject...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + '/subjects');
+    console.log('🔍 Creating subject...');
+    console.log('📡 URL:', '/subjects');
     console.log('📦 Payload:', payload);
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.post("/subjects", payload);
-    console.log('✅ Create successful:', res.status, res.data);
+    const res = await AppService.post('/subjects', payload, token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Create subject error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error creating subject:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
 // 👥 Get students in a specific subject
-const getSubjectStudents = async (subjectId) => {
+const getSubjectStudents = async (subjectId, token) => {
   try {
-    console.log('🔍 Attempting to fetch subject students...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + `/subjects/${subjectId}/students`);
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.get(`/subjects/${subjectId}/students`);
-    console.log('✅ Fetch successful:', res.status, res.data);
+    console.log('🔍 Fetching subject students...');
+    console.log('📡 URL:', `/subjects/${subjectId}/students`);
+    const res = await AppService.get(`/subjects/${subjectId}/students`, token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Fetch subject students error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error fetching subject students:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
 // ➕ Add a single student to a subject
-const addStudent = async (subjectId, payload) => {  // Fixed: payload instead of studentId
+const addStudent = async (subjectId, payload, token) => {
   try {
-    console.log('🔍 Attempting to add student to subject...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + `/subjects/${subjectId}/students`);
+    console.log('🔍 Adding student to subject...');
+    console.log('📡 URL:', `/subjects/${subjectId}/students`);
     console.log('📦 Payload:', payload);
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.post(`/subjects/${subjectId}/students`, payload);
-    console.log('✅ Add successful:', res.status, res.data);
+    const res = await AppService.post(`/subjects/${subjectId}/students`, payload, token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Add student error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error adding student:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
-// 🗑️ Remove a single student from a subject (with Grade deletion)
-const removeStudentFromSubject = async (subjectId, studentId) => {
+// 🗑️ Remove a single student from a subject
+const removeStudentFromSubject = async (subjectId, studentId, token) => {
   try {
-    console.log('🔍 Attempting to remove student from subject...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + `/subjects/${subjectId}/students/${studentId}`);
-    console.log('🆔 Student ID:', studentId);
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.delete(`/subjects/${subjectId}/students/${studentId}`);
-    console.log('✅ Remove successful:', res.status, res.data);
+    console.log('🔍 Removing student from subject...');
+    console.log('📡 URL:', `/subjects/${subjectId}/students/${studentId}`);
+    const res = await AppService.delete(`/subjects/${subjectId}/students/${studentId}`, token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Remove student error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error removing student:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
-// 🔄 Update a subject (e.g., add/remove students, edit details)
-const updateSubject = async (subjectId, payload) => {
+// 🔄 Update a subject
+const updateSubject = async (subjectId, payload, token) => {
   try {
-    console.log('🔍 Attempting to update subject...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + `/subjects/${subjectId}`);
+    console.log('🔍 Updating subject...');
+    console.log('📡 URL:', `/subjects/${subjectId}`);
     console.log('📦 Payload:', payload);
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.put(`/subjects/${subjectId}`, payload);
-    console.log('✅ Update successful:', res.status, res.data);
+    const res = await AppService.put(`/subjects/${subjectId}`, payload, token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Update subject error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error updating subject:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
 
 // 📚 Get a specific subject by ID
-const getSubject = async (subjectId) => {
+const getSubject = async (subjectId, token) => {
   try {
-    console.log('🔍 Attempting to fetch subject...');
-    console.log('📡 Request URL:', AppService.defaults.baseURL + `/subjects/${subjectId}`);
-    console.log('🔑 Token present:', !!localStorage.getItem('accessToken'));
-    console.log('👤 Role:', localStorage.getItem('role'));
-
-    const res = await AppService.get(`/subjects/${subjectId}`);
-    console.log('✅ Fetch successful:', res.status, res.data);
+    console.log('🔍 Fetching subject...');
+    console.log('📡 URL:', `/subjects/${subjectId}`);
+    const res = await AppService.get(`/subjects/${subjectId}`, token);
+    console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
-    console.error("❌ Fetch subject error:");
-    console.error('   Status:', error.response?.status);
-    console.error('   Data:', error.response?.data);
-    console.error('   Message:', error.message);
-    console.error('   Full config:', error.config);
+    console.error("❌ Error fetching subject:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };
@@ -179,7 +154,7 @@ const subjectService = {
   createSubject,
   getSubjectStudents,
   addStudent,
-  removeStudentFromSubject, // New export
+  removeStudentFromSubject,
   updateSubject,
   getSubject,
 };

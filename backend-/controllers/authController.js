@@ -1,107 +1,157 @@
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const asyncHandler = require('express-async-handler');
 const Student = require('../models/Student');
 const User = require('../models/User');
 
-// ---------------- TOKEN GENERATORS ----------------
-const generateAccessToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_SECRET, {
-    expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '15m',
-  });
-
-const generateRefreshToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d',
-  });
-
-// ---------------- REGISTER (ALL ROLES) ----------------
-exports.register = async (req, res, next) => {
-  try {
-    const { name, email, password, inviteCode, subjects } = req.body;
-
-    let role;
-    if (inviteCode === process.env.STUDENT_INVITE_CODE) role = 'student';
-    else if (inviteCode === process.env.TEACHER_INVITE_CODE) role = 'teacher';
-    else if (inviteCode === process.env.SUPERADMIN_INVITE_CODE) role = 'superadmin';
-    else return res.status(403).json({ message: 'Invalid invite code' });
-
-    const existing =
-      role === 'student'
-        ? await Student.findOne({ email })
-        : await User.findOne({ email });
-
-    if (existing)
-      return res.status(400).json({ message: 'Email already in use' });
-
-    const hashed = await bcrypt.hash(password, 10);
-    let user;
-
-    if (role === 'student') {
-      user = new Student({ name, email, password: hashed });
-    } else {
-      user = new User({ name, email, password: hashed, role, subjects });
-    }
-
-    await user.save();
-
-    res
-      .status(201)
-      .json({ message: `${role.charAt(0).toUpperCase() + role.slice(1)} registered successfully` });
-  } catch (err) {
-    next(err);
+/**
+ * Generates JWT tokens for access/refresh.
+ * @param {Object} payload - { id, role }
+ * @param {boolean} isRefresh - True for refresh token (7d exp, optional fallback secret)
+ * @returns {string} Signed JWT
+ */
+const generateToken = (payload, isRefresh = false) => {
+  const secret = isRefresh 
+    ? (process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET) 
+    : process.env.JWT_SECRET;
+  const expiresIn = isRefresh ? '7d' : '15m';
+  if (!secret) {
+    throw new Error('JWT_SECRET missing'); // Fail fast in dev
   }
+  return jwt.sign(payload, secret, { expiresIn });
 };
 
-// ---------------- LOGIN ----------------
-exports.login = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-    console.log('🔑 Login attempt for email:', email); // Debug: Track login starts
+/**
+ * Fetches user by email from Student or User model, with password.
+ * @param {string} email - Normalized email
+ * @returns {Object|null} User doc or null
+ */
+const fetchUserByEmail = async (email) => {
+  let user = await Student.findOne({ email }).select('+password');
+  if (user) return { user, role: 'student' };
 
-    let user = await Student.findOne({ email });
-    let role = 'student';
+  user = await User.findOne({ email }).select('+password');
+  if (user) return { user, role: 'teacher' };
+
+  return null;
+};
+
+/**
+ * Login handler: Validates creds, generates tokens.
+ */
+const login = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  // ✅ Validation: Early fail on missing/invalid input
+  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+    console.warn('🚫 Invalid login payload:', { email, hasPassword: !!password });
+    return res.status(400).json({ message: 'Email and password are required' });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  console.log(`🔑 Login attempt for email: ${normalizedEmail}`);
+
+  // Env check (optional, for debug)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 Env check:', { 
+      secret: !!process.env.JWT_SECRET, 
+      refreshSecret: !!process.env.JWT_REFRESH_SECRET 
+    });
+  }
+
+  // Fetch user
+  const userData = await fetchUserByEmail(normalizedEmail);
+  if (!userData) {
+    console.warn(`🚫 No user found for email: ${normalizedEmail}`);
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
+
+  const { user, role } = userData;
+  console.log(`🔍 ${role.charAt(0).toUpperCase() + role.slice(1)} lookup for ${normalizedEmail}: Found`);
+
+  // Password check
+  const pwMatch = await user.matchPassword(password);
+  if (!pwMatch) {
+    console.warn(`🚫 Password mismatch for ${role} ID: ${user._id}`);
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
+  console.log(`🔍 Password match: Success for ${role} ID: ${user._id}`);
+
+  const payload = { id: user._id, role };
+
+  const accessToken = generateToken(payload, false);
+  const refreshToken = generateToken(payload, true);
+
+  // Exp logging
+  const accessExpMs = 15 * 60 * 1000;
+  const refreshExpMs = 7 * 24 * 60 * 60 * 1000;
+  const accessExp = new Date(Date.now() + accessExpMs).toISOString();
+  const refreshExp = new Date(Date.now() + refreshExpMs).toISOString();
+  console.log(`✅ Login success - Generated tokens for ${role} ID: ${user._id} - Access exp: ${accessExp} - Refresh exp: ${refreshExp}`);
+
+  res.json({
+    success: true,
+    accessToken,
+    refreshToken,
+    user: { 
+      id: user._id, 
+      role,
+      email: user.email,
+      name: user.name // Assuming field exists; add if needed
+    }
+  });
+});
+
+/**
+ * Refresh handler: Validates refresh token, issues new pair.
+ */
+const refreshTokenHandler = asyncHandler(async (req, res) => {
+  let incomingRefreshToken = req.body.refreshToken || req.headers.authorization?.split(' ')[1];
+
+  if (!incomingRefreshToken) {
+    return res.status(401).json({ message: 'Refresh token required' });
+  }
+
+  try {
+    console.log('🔄 Refresh request received - Token preview:', incomingRefreshToken.substring(0, 20) + '...');
+
+    const decoded = jwt.verify(incomingRefreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+    console.log(`🔍 Refresh token decoded: ID ${decoded.id}, role ${decoded.role}`);
+
+    const UserModel = decoded.role === 'student' ? Student : User;
+    const user = await UserModel.findById(decoded.id).select('-password');
 
     if (!user) {
-      user = await User.findOne({ email });
-      if (!user) return res.status(404).json({ message: 'User not found' });
-      role = user.role;
+      console.warn(`🚫 User not found for refresh ID: ${decoded.id}`);
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Wrong password' });
+    const payload = { id: user._id, role: decoded.role };
 
-    const token = generateAccessToken(user._id, role);
-    const refreshToken = generateRefreshToken(user._id, role);
+    const newAccessToken = generateToken(payload, false);
+    const newRefreshToken = generateToken(payload, true);
 
-    console.log('✅ Login success - Generated tokens for', role, 'ID:', user._id.toString(), // Debug: Confirm token generation
-      '- Access exp:', new Date(Date.now() + (process.env.ACCESS_TOKEN_EXPIRY || '15m')), // Rough exp calc
-      '- Refresh exp:', new Date(Date.now() + (process.env.REFRESH_TOKEN_EXPIRY || '7d'))); // Debug: Expiry preview
+    const accessExpMs = 15 * 60 * 1000;
+    const accessExp = new Date(Date.now() + accessExpMs).toISOString();
+    console.log(`🔄 Generated new access token for refresh - Exp: ${accessExp}`);
+    console.log(`✅ Refresh verify success for ID: ${decoded.id} role: ${decoded.role}`);
 
-    res.json({ token, refreshToken, role });
+    res.json({
+      success: true,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: { 
+        id: user._id, 
+        role: decoded.role 
+      }
+    });
   } catch (err) {
-    next(err);
+    console.error('❌ Refresh verification failed:', { 
+      message: err.message, 
+      name: err.name,
+      tokenPreview: incomingRefreshToken.substring(0, 20) + '...' 
+    });
+    res.status(401).json({ message: 'Invalid or expired refresh token' });
   }
-};
+});
 
-// ---------------- REFRESH TOKEN ----------------
-exports.refreshToken = async (req, res) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken)
-    return res.status(401).json({ message: 'Missing refresh token' });
-
-  console.log('🔄 Refresh request received - Token preview:', refreshToken.substring(0, 20) + '...'); // Debug: Confirm incoming refresh
-
-  try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    console.log('✅ Refresh verify success for ID:', decoded.id, 'role:', decoded.role); // Debug: Valid refresh details
-
-    const newAccessToken = generateAccessToken(decoded.id, decoded.role);
-    console.log('🔄 Generated new access token for refresh - Exp:', new Date(Date.now() + (process.env.ACCESS_TOKEN_EXPIRY || '15m'))); // Debug: New token exp
-
-    res.json({ accessToken: newAccessToken });
-  } catch (err) {
-    console.error('❌ Refresh token verification failed:', err.name, '-', err.message, // Enhanced: Specific error type (e.g., TokenExpiredError)
-      '- Token preview:', refreshToken.substring(0, 20) + '...'); // Debug: Which token failed
-    res.status(403).json({ message: 'Invalid or expired refresh token' });
-  }
-};
+module.exports = { login, refreshToken: refreshTokenHandler };

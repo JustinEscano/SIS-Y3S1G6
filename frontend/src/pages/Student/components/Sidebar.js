@@ -1,3 +1,4 @@
+
 // components/Sidebar.jsx (Hybrid Version)
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
@@ -6,10 +7,6 @@ import logo from "../../../assets/images/logo.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faHome,
-  faUserGraduate,
-  faBook,
-  faChartLine,
-  faBell,
   faRightFromBracket,
   faExclamationTriangle,
   faTimes,
@@ -94,7 +91,7 @@ function Sidebar() {
         {/* Navigation */}
         <nav className="sidebar-nav">
           <NavLink
-            to="/teacher/dashboard"
+            to="."
             className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
           >
             <FontAwesomeIcon icon={faHome} />
@@ -102,35 +99,11 @@ function Sidebar() {
           </NavLink>
 
           <NavLink
-            to="/teacher/students"
+            to="subjects"
             className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
           >
-            <FontAwesomeIcon icon={faUserGraduate} />
-            <span>Student Management</span>
-          </NavLink>
-
-          <NavLink
-            to="/teacher/subjects"
-            className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
-          >
-            <FontAwesomeIcon icon={faBook} />
-            <span>Subject Management</span>
-          </NavLink>
-
-          <NavLink
-            to="/teacher/analytics"
-            className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
-          >
-            <FontAwesomeIcon icon={faChartLine} />
-            <span>Analytics</span>
-          </NavLink>
-
-          <NavLink
-            to="/teacher/notifications"
-            className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`}
-          >
-            <FontAwesomeIcon icon={faBell} />
-            <span>Notifications</span>
+            <FontAwesomeIcon icon={faHome} />
+            <span>Subjects</span>
           </NavLink>
         </nav>
 

@@ -1,4 +1,4 @@
-// server.js (Full refactored version - incorporating student routes)
+// server.js (Full refactored version - incorporating student routes and attendance)
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config(); // Load .env early
@@ -10,6 +10,7 @@ const authRoutes = require('./routes/authRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes'); // FIXED: Added missing attendance routes
 
 const app = express();
 
@@ -27,7 +28,8 @@ app.get('/', (req, res) => res.send('✅ API is running...'));
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/students', studentRoutes);
-app.use('/api/grades', gradeRoutes)
+app.use('/api/grades', gradeRoutes);
+app.use('/api/attendance', attendanceRoutes); // FIXED: Added attendance routes
 
 // ⚠️ Global error handler
 app.use(errorHandler);
