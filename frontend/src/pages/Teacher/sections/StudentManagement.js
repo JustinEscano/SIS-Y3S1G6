@@ -148,9 +148,6 @@ const StudentManagement = () => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#81020b] focus:border-[#81020b] text-sm"
                         />
                     </div>
-                    <button onClick={handleReset} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition text-sm font-medium whitespace-nowrap">
-                        <FontAwesomeIcon icon={faRotate} className="mr-1" /> Reset
-                    </button>
                 </div>
             </div>
 
@@ -163,13 +160,13 @@ const StudentManagement = () => {
                     <table className="w-full table-auto border-collapse">
                         <thead>
                             <tr className="bg-gray-50">
-                                <th className="th">Name</th>
-                                <th className="th">Email</th>
-                                <th className="th">LRN</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LRN</th>
                                 {/* Use Current Grade */}
-                                <th className="th">Current Grade</th>
-                                <th className="th">Section</th>
-                                <th className="th">Actions</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Grade</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -182,17 +179,17 @@ const StudentManagement = () => {
                             ) : (
                                 paginatedStudents.map((student) => (
                                     <tr key={student._id} className="hover:bg-gray-50 transition-colors duration-150">
-                                        <td className="td font-medium text-gray-900">{student.name}</td>
-                                        <td className="td">{student.email}</td>
-                                        <td className="td">{student.lrn || 'N/A'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium text-gray-900">{student.name}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.email}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.lrn || 'N/A'}</td>
                                         {/* Display currentGradeLevel */}
-                                        <td className="td font-medium">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
                                              {student.currentGradeLevel ?
                                                  `Grade ${student.currentGradeLevel}`
                                                  : <span className='text-gray-400 italic'>Inactive</span>
                                              }
                                         </td>
-                                        <td className="td">{student.section || 'N/A'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.section || 'N/A'}</td>
                                         <td className="px-6 py-3 whitespace-nowrap text-sm font-medium space-x-3"> {/* Adjusted padding/spacing */}
                                             <button onClick={() => openStudentModal(student)} className="text-blue-600 hover:text-blue-800 transition-colors duration-200" title="View Details"> <FontAwesomeIcon icon={faEye} /> </button>
                                             <button className="text-yellow-500 hover:text-yellow-700 transition-colors duration-200" title="Edit Student (Placeholder)"> <FontAwesomeIcon icon={faEdit} /> </button>
@@ -251,11 +248,5 @@ const StudentManagement = () => {
         </div>
     );
 };
-
-// Add basic CSS for th/td if not globally defined (e.g., in index.css)
-/*
-.th { @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider; }
-.td { @apply px-6 py-4 whitespace-nowrap text-sm text-gray-500; }
-*/
 
 export default StudentManagement;
