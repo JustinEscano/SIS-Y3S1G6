@@ -74,11 +74,29 @@ const deleteStudent = async (id, token) => {
   }
 };
 
+const updateOwnProfile = async (payload) => {
+  try {
+    console.log('🔍 Updating current student profile...');
+    console.log('📡 URL:', `/students/profile/me`);
+    const res = await AppService.put('/students/profile/me', payload);
+    console.log('✅ Success:', res.status, res.data);
+    return res.data;
+  } catch (error) {
+    console.error("❌ Error updating current student profile:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    throw error;
+  }
+};
+
 const studentService = {
   getAllStudents,
   getStudentById,
   updateStudent,
   deleteStudent,
+  updateOwnProfile,
 };
 
 export default studentService;

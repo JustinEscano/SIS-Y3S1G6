@@ -10,7 +10,7 @@ function Topbar() {
   const navigate = useNavigate();
 
   return (
-    <header className="teacher-topbar top-0 left-64 right-0 z-40 h-16 bg-[#81020b] flex items-center justify-between px-6 shadow-md border-b border-gray-200">
+    <header className="teacher-topbar top-0 left-64 right-0 z-40 h-16 bg-[#81020b]/90 backdrop-blur-sm flex items-center justify-between px-6 shadow-md border-b border-gray-200">
       <div className="topbar-left">
         <h1 className="topbar-title">Teacher Portal</h1>
       </div>

@@ -53,6 +53,59 @@ const getStudentProfile = asyncHandler(async (req, res) => {
   });
 });
 
+// Update current student's profile (self-service)
+const updateStudentProfile = asyncHandler(async (req, res) => {
+  const studentId = req.user?._id || req.user?.id;
+  if (!studentId) {
+    return res.status(401).json({ message: 'Unable to verify student identity.' });
+  }
+
+  const { name, email } = req.body || {};
+  const updates = {};
+
+  if (typeof name === 'string') {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return res.status(400).json({ message: 'Name cannot be empty.' });
+    }
+    updates.name = trimmedName;
+  }
+
+  if (typeof email === 'string') {
+    const trimmedEmail = email.trim().toLowerCase();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(trimmedEmail)) {
+      return res.status(400).json({ message: 'Please provide a valid email address.' });
+    }
+
+    const existingEmailOwner = await Student.findOne({ email: trimmedEmail, _id: { $ne: studentId } });
+    if (existingEmailOwner) {
+      return res.status(409).json({ message: 'That email is already in use by another account.' });
+    }
+
+    updates.email = trimmedEmail;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ message: 'No updates provided.' });
+  }
+
+  const updatedStudent = await Student.findByIdAndUpdate(
+    studentId,
+    updates,
+    { new: true, runValidators: true }
+  ).select('-password');
+
+  if (!updatedStudent) {
+    return res.status(404).json({ message: 'Student not found.' });
+  }
+
+  res.status(200).json({
+    success: true,
+    data: updatedStudent,
+  });
+});
+
 // Update student
 const updateStudent = asyncHandler(async (req, res) => {
   const updates = req.body;
@@ -96,6 +149,7 @@ module.exports = {
   getAllStudents,
   getStudentById,
   getStudentProfile, // NEW
+  updateStudentProfile,
   updateStudent,
   deleteStudent,
 };

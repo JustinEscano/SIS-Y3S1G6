@@ -19,7 +19,8 @@ const studentSchema = new mongoose.Schema(
       subject: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
       joinedAt: { type: Date, default: Date.now },
       academicYear: { type: String }, // e.g., "2025-2026"
-      status: { type: String, enum: ['active', 'archived'], default: 'active' }
+      status: { type: String, enum: ['active', 'archived'], default: 'active' },
+      assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
     }],
   },
   { timestamps: true }

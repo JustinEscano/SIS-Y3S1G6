@@ -93,6 +93,11 @@ function Sidebar() {
             <FontAwesomeIcon icon={faChartLine} />
             <span>Grade Progress</span>
           </NavLink>
+
+          <NavLink to="/student/attendance" className={getNavLinkClass}>
+            <FontAwesomeIcon icon={faChartLine} />
+            <span>Attendance</span>
+          </NavLink>
         </nav>
 
         {/* Footer */}

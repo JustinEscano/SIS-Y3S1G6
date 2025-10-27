@@ -18,8 +18,14 @@ import { useAuth } from '../../../context/authContext';
 const ConfirmationModal = ({ isOpen, title, message, onConfirm, onClose, confirmText = "Confirm", cancelText = "Cancel", isLoading = false }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
+        <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="flex items-start mb-4">
                     <FontAwesomeIcon icon={faExclamationTriangle} className="text-xl text-yellow-500 mr-3 mt-1 flex-shrink-0" />
                     <div>
@@ -49,13 +55,15 @@ const ConfirmationModal = ({ isOpen, title, message, onConfirm, onClose, confirm
 const GradeModal = ({ isOpen, onClose, student, finalGrade, onChange, onSave, saving }) => {
     if (!isOpen || !student) return null;
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-            <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
-                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Add / Edit Grades</h2>
-                        <p className="text-sm text-gray-500">{student.name} • {student.email}</p>
-                    </div>
+        <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+            onClick={onClose}
+        >
+            <div
+                className="w-full max-w-2xl rounded-2xl bg-white shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-end border-b border-gray-100 px-6 py-4">
                     <button
                         onClick={onClose}
                         className="rounded-full border border-gray-200 p-2 text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
@@ -77,9 +85,6 @@ const GradeModal = ({ isOpen, onClose, student, finalGrade, onChange, onSave, sa
                             placeholder="Enter final grade"
                         />
                     </label>
-                    <p className="text-xs text-gray-500">
-                        Enter the computed final grade for this student in the subject. You can edit this value anytime.
-                    </p>
                 </div>
                 <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
                     <button
@@ -106,8 +111,14 @@ const GradeModal = ({ isOpen, onClose, student, finalGrade, onChange, onSave, sa
 const SuccessModal = ({ isOpen, onClose, summary, date }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
+        <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="flex items-center mb-4">
                     <FontAwesomeIcon icon={faCheckCircle} className="text-2xl text-green-500 mr-3" />
                     <h3 className="text-lg font-semibold text-gray-800">Attendance Saved Successfully</h3>
@@ -831,16 +842,9 @@ const SubjectOverview = () => {
                                                     {student ? (
                                                         <div className="flex flex-wrap gap-2">
                                                             <button
-                                                                onClick={() => openGradeModal(student)}
-                                                                className="rounded-full border border-blue-100 px-3 py-1 text-xs font-medium text-blue-600 transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                disabled={loading.action}
-                                                            >
-                                                                Edit
-                                                            </button>
-                                                            <button
                                                                 onClick={() => navigate(`/teacher/subjects/${subjectId}/grades/${student._id}/analytics`)}
-                                                                className="rounded-full border border-indigo-100 px-3 py-1 text-xs font-medium text-indigo-600 transition hover:border-indigo-200 hover:bg-indigo-50"
-                                                                title="View student grade trends"
+                                                                className="rounded-full border border-emerald-100 px-3 py-1 text-xs font-medium text-emerald-600 transition hover:border-emerald-200 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                disabled={loading.action}
                                                             >
                                                                 Details
                                                             </button>

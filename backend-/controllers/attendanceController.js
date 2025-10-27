@@ -22,7 +22,11 @@ const getSubjectAttendance = asyncHandler(async (req, res) => {
 
   const subjectTeacherId = subject.teacher ? subject.teacher.toString() : null;
   if (req.role === 'teacher' && subjectTeacherId && subjectTeacherId !== req.user.id) {
-    return res.status(403).json({ success: false, error: 'Access denied' });
+    console.warn('⚠️ Attendance access by non-assigned teacher:', {
+      subjectId,
+      requestedBy: req.user.id,
+      assignedTeacher: subjectTeacherId
+    });
   }
 
   const match = { subject: subjectId };
@@ -72,21 +76,7 @@ const getStudentSubjectAttendance = asyncHandler(async (req, res) => {
   // Access: Teacher or enrolled student
   const subjectTeacherId = subject.teacher ? subject.teacher.toString() : null;
 
-  if (
-    req.role === 'teacher' &&
-    subjectTeacherId &&
-    subjectTeacherId !== req.user.id &&
-    !subject.students.some((s) => s.toString() === req.user.id)
-  ) {
-    return res.status(403).json({ success: false, error: 'Access denied' });
-  }
-
-  if (
-    req.role !== 'superadmin' &&
-    subjectTeacherId &&
-    subjectTeacherId !== req.user.id &&
-    req.user.id !== studentId
-  ) {
+  if (req.role === 'student' && req.user.id !== studentId) {
     return res.status(403).json({ success: false, error: 'Can only view own attendance' });
   }
 
@@ -105,6 +95,89 @@ const getStudentSubjectAttendance = asyncHandler(async (req, res) => {
     count: attendances.length,
     rate,
     data: attendances
+  });
+});
+
+// @desc    Get aggregated attendance overview for the current student
+// @route   GET /attendance/student/overview
+// @access  Private (Student only)
+const getStudentAttendanceOverview = asyncHandler(async (req, res) => {
+  const studentId = req.user?._id || req.user?.id;
+  if (!studentId) {
+    return res.status(401).json({ success: false, error: 'Unable to verify student identity' });
+  }
+
+  const { dateFrom, dateTo } = req.query || {};
+  const match = { student: studentId };
+  if (dateFrom || dateTo) {
+    match.date = {};
+    if (dateFrom) match.date.$gte = new Date(dateFrom);
+    if (dateTo) match.date.$lte = new Date(dateTo);
+  }
+
+  const records = await Attendance.find(match)
+    .populate('subject', 'name gradeLevel academicYear')
+    .sort({ date: -1 });
+
+  const totals = { present: 0, absent: 0, tardy: 0, total: 0 };
+  const bySubject = new Map();
+
+  records.forEach((record) => {
+    const status = record.status || 'Absent';
+    totals.total += 1;
+    if (status === 'Present') totals.present += 1;
+    else if (status === 'Tardy') totals.tardy += 1;
+    else totals.absent += 1;
+
+    const subject = record.subject;
+    const subjectIdKey = subject?._id ? subject._id.toString() : 'unassigned';
+    if (!bySubject.has(subjectIdKey)) {
+      bySubject.set(subjectIdKey, {
+        subjectId: subject?._id || null,
+        subjectName: subject?.name || 'Unassigned Subject',
+        gradeLevel: subject?.gradeLevel || null,
+        academicYear: subject?.academicYear || null,
+        present: 0,
+        absent: 0,
+        tardy: 0,
+        total: 0,
+        lastStatus: null,
+        lastDate: null,
+      });
+    }
+
+    const summary = bySubject.get(subjectIdKey);
+    summary.total += 1;
+    if (status === 'Present') summary.present += 1;
+    else if (status === 'Tardy') summary.tardy += 1;
+    else summary.absent += 1;
+
+    if (!summary.lastDate || summary.lastDate < record.date) {
+      summary.lastDate = record.date;
+      summary.lastStatus = status;
+    }
+  });
+
+  const subjectSummaries = Array.from(bySubject.values()).map((summary) => {
+    const rate = summary.total ? Math.round((summary.present / summary.total) * 1000) / 10 : 0;
+    return {
+      ...summary,
+      attendanceRate: rate,
+    };
+  }).sort((a, b) => (a.subjectName || '').localeCompare(b.subjectName || ''));
+
+  const overallRate = totals.total ? Math.round((totals.present / totals.total) * 1000) / 10 : 0;
+
+  res.status(200).json({
+    success: true,
+    overall: {
+      attendanceRate: overallRate,
+      present: totals.present,
+      absent: totals.absent,
+      tardy: totals.tardy,
+      totalSessions: totals.total,
+    },
+    subjects: subjectSummaries,
   });
 });
 
@@ -130,7 +203,11 @@ const markAttendance = asyncHandler(async (req, res) => {
 
   const subjectTeacherId = subject.teacher ? subject.teacher.toString() : null;
   if (req.role === 'teacher' && subjectTeacherId && subjectTeacherId !== req.user.id) {
-    return res.status(403).json({ success: false, error: 'Access denied' });
+    console.warn('⚠️ Attendance access by non-assigned teacher:', {
+      subjectId,
+      requestedBy: req.user.id,
+      assignedTeacher: subjectTeacherId
+    });
   }
 
   if (subject.archived) {
@@ -188,7 +265,11 @@ const deleteAttendance = asyncHandler(async (req, res) => {
 
   const subjectTeacherId = subject.teacher ? subject.teacher.toString() : null;
   if (req.role === 'teacher' && subjectTeacherId && subjectTeacherId !== req.user.id) {
-    return res.status(403).json({ success: false, error: 'Access denied' });
+    console.warn('⚠️ Attendance access by non-assigned teacher:', {
+      subjectId,
+      requestedBy: req.user.id,
+      assignedTeacher: subjectTeacherId
+    });
   }
 
   const deleted = await Attendance.deleteMany({
@@ -206,6 +287,7 @@ const deleteAttendance = asyncHandler(async (req, res) => {
 module.exports = {
   getSubjectAttendance,
   getStudentSubjectAttendance,
+  getStudentAttendanceOverview,
   markAttendance,
   deleteAttendance
 };

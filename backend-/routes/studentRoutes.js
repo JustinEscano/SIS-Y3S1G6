@@ -6,8 +6,10 @@ const {
   getStudentById, 
   updateStudent, 
   deleteStudent,
-  getStudentProfile // NEW
+  getStudentProfile,
+  updateStudentProfile
 } = require('../controllers/studentController');
+
 const { verifyToken, requireRole } = require('../middleware/authMiddleware'); // Added auth for security
 
 // GET /api/students - Get all students (admin/teacher)
@@ -16,6 +18,9 @@ router.get('', verifyToken, requireRole(['teacher', 'superadmin']), getAllStuden
 // NEW: GET /api/students/profile/me - Get current student's profile (student only)
 // Must be defined BEFORE /:id
 router.get('/profile/me', verifyToken, requireRole('student'), getStudentProfile);
+
+// NEW: PUT /api/students/profile/me - Update current student's profile (student only)
+router.put('/profile/me', verifyToken, requireRole('student'), updateStudentProfile);
 
 // GET /api/students/:id
 router.get('/:id', verifyToken, requireRole(['teacher', 'superadmin', 'student']), getStudentById);

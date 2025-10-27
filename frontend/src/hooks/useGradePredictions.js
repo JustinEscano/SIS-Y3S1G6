@@ -1,11 +1,12 @@
 // hooks/useGradePredictions.js
 // FIXED: Proper handling of available quarters with x indices for regression, ignoring gaps.
 // FIXED: computeTotal requires both fields non-empty/valid.
-// FIXED: chartData shows full actual + predictions per mode: sem2 (Q1-4 with Q3/Q4 pred), nextYear (Q1-4 actual + Q5-8 pred), current (actual + pred missing up to Q4).
-// FIXED: predictValue: sem2 (avg Q3/Q4 pred), current (avg all 4 with pred missing), nextYear (avg Q5-8 pred).
-// FIXED: predictedFinal: sem2 (avg sem1 actual + sem2 pred), current/nextYear (predictValue).
+// FIXED: chartData shows full actual + predictions per mode: q1-4 (Q1-4 with Q3/Q4 pred), nextYear (Q1-4 actual + Q5-8 pred), current (actual + pred missing up to Q4).
+// FIXED: predictValue: q1-4 (avg Q3/Q4 pred), current (avg all 4 with pred missing), nextYear (avg Q5-8 pred).
+// FIXED: predictedFinal: q1-4 (avg Q1/Q2 actual + Q3/Q4 pred), current/nextYear (predictValue).
+
 // FIXED: Clamped predictions 0-100.
-// MODIFIED: For sem2 mode, chart shows prediction line (actual Q1/Q2 + pred Q3/Q4) and, if sem2 actuals available, an additional actual line (Q1/Q2/Q3/Q4).
+// MODIFIED: For q1-4 mode, chart shows prediction line (actual Q1/Q2 + pred Q3/Q4) and, if q1-4 actuals available, an additional actual line (Q1/Q2/Q3/Q4).
 
 import { useMemo } from 'react';
 
@@ -50,14 +51,14 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
   ].filter(Boolean), [q1_total, q2_total, q3_total, q4_total]);
 
   const predictValue = useMemo(() => {
-    if (predictionMode === 'sem2') {
-      const sem1Data = availableQuarters.filter(d => d.x <= 2);
-      if (sem1Data.length === 0) return NaN;
-      const semX = sem1Data.map(d => d.x);
-      const semY = sem1Data.map(d => d.y);
-      const { slope: semSlope, intercept: semIntercept } = linearRegression(semX, semY);
-      const predQ3 = Math.max(0, Math.min(100, semSlope * 3 + semIntercept));
-      const predQ4 = Math.max(0, Math.min(100, semSlope * 4 + semIntercept));
+    if (predictionMode === 'q1-4') {
+      const q1Data = availableQuarters.filter(d => d.x <= 2);
+      if (q1Data.length === 0) return NaN;
+      const q1X = q1Data.map(d => d.x);
+      const q1Y = q1Data.map(d => d.y);
+      const { slope: q1Slope, intercept: q1Intercept } = linearRegression(q1X, q1Y);
+      const predQ3 = Math.max(0, Math.min(100, q1Slope * 3 + q1Intercept));
+      const predQ4 = Math.max(0, Math.min(100, q1Slope * 4 + q1Intercept));
       return (predQ3 + predQ4) / 2;
     } else if (predictionMode === 'current') {
       if (availableQuarters.length === 0) return NaN;
@@ -93,13 +94,13 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
   }, [predictionMode, availableQuarters]);
 
   const predictedFinal = useMemo(() => {
-    if (predictionMode === 'sem2') {
-      const sem1Available = availableQuarters.filter(d => d.x <= 2).map(d => d.y);
-      if (sem1Available.length === 0) return NaN;
-      const sem1Avg = sem1Available.reduce((a, b) => a + b, 0) / sem1Available.length;
-      const sem2Pred = predictValue;
-      if (isNaN(sem2Pred)) return NaN;
-      return (sem1Avg + sem2Pred) / 2;
+    if (predictionMode === 'q1-4') {
+      const q1Available = availableQuarters.filter(d => d.x <= 2).map(d => d.y);
+      if (q1Available.length === 0) return NaN;
+      const q1Avg = q1Available.reduce((a, b) => a + b, 0) / q1Available.length;
+      const q2Pred = predictValue;
+      if (isNaN(q2Pred)) return NaN;
+      return (q1Avg + q2Pred) / 2;
     } else if (predictionMode === 'current') {
       return predictValue;
     } else if (predictionMode === 'nextYear') {
@@ -120,23 +121,23 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
       fill: false,
     };
 
-    if (predictionMode === 'sem2') {
-      const sem1Data = availableQuarters.filter(d => d.x <= 2);
-      const { slope, intercept } = sem1Data.length > 0 ? linearRegression(
-        sem1Data.map(d => d.x),
-        sem1Data.map(d => d.y)
+    if (predictionMode === 'q1-4') {
+      const q1Data = availableQuarters.filter(d => d.x <= 2);
+      const { slope, intercept } = q1Data.length > 0 ? linearRegression(
+        q1Data.map(d => d.x),
+        q1Data.map(d => d.y)
       ) : { slope: 0, intercept: 0 };
       const predQ3 = Math.max(0, Math.min(100, slope * 3 + intercept));
       const predQ4 = Math.max(0, Math.min(100, slope * 4 + intercept));
-      const labels = ['Q1 (Sem 1)', 'Q2 (Sem 1)', 'Q3 (Sem 2)', 'Q4 (Sem 2)'];
+      const labels = ['Q1', 'Q2', 'Q3', 'Q4'];
       const predictionData = [q1_total ?? NaN, q2_total ?? NaN, predQ3, predQ4];
       let datasets = [{
         label: 'Predicted Progress',
         data: predictionData,
         ...commonDataset,
       }];
-      const hasSem2Data = q3_total !== null || q4_total !== null;
-      if (hasSem2Data) {
+      const hasQ2Data = q3_total !== null || q4_total !== null;
+      if (hasQ2Data) {
         const actualData = [q1_total ?? NaN, q2_total ?? NaN, q3_total ?? NaN, q4_total ?? NaN];
         datasets.push({
           label: 'Actual Grades',
@@ -179,12 +180,12 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
   }, [predictionMode, availableQuarters, q1_total, q2_total, q3_total, q4_total]);
 
   const slope = useMemo(() => {
-    if (predictionMode === 'sem2') {
-      const sem1Data = availableQuarters.filter(d => d.x <= 2);
-      if (sem1Data.length < 2) return 0;
-      const semX = sem1Data.map(d => d.x);
-      const semY = sem1Data.map(d => d.y);
-      return linearRegression(semX, semY).slope;
+    if (predictionMode === 'q1-4') {
+      const q1Data = availableQuarters.filter(d => d.x <= 2);
+      if (q1Data.length < 2) return 0;
+      const q1X = q1Data.map(d => d.x);
+      const q1Y = q1Data.map(d => d.y);
+      return linearRegression(q1X, q1Y).slope;
     } else {
       if (availableQuarters.length < 2) return 0;
       const usedX = availableQuarters.map(d => d.x);
@@ -210,8 +211,8 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
   }, [slope, predictValue]);
 
   const suggestedTitles = useMemo(() => {
-    const sem1Avg = (q1_total + q2_total) / 2 || 0;
-    const sem2Avg = (q3_total + q4_total) / 2 || 0;
+    const q1Avg = (q1_total + q2_total) / 2 || 0;
+    const q2Avg = (q3_total + q4_total) / 2 || 0;
     const finalAvg = calculatedFinal;
 
     const titles = [];
@@ -219,8 +220,8 @@ export const useGradePredictions = (gradeInputs, predictionMode, dataScope) => {
     if (q2_total < 75) titles.push('Needs Improvement in Second Quarter');
     if (q3_total < 75) titles.push('Challenges in Third Quarter');
     if (q4_total < 75) titles.push('Regarding Fourth Quarter Results');
-    if (sem1Avg < 75) titles.push('Semester 1: Areas for Growth');
-    if (sem2Avg < 75) titles.push('Semester 2: Support Required');
+    if (q1Avg < 75) titles.push('First Half (Q1 & Q2): Areas for Growth');
+    if (q2Avg < 75) titles.push('Second Half (Q3 & Q4): Support Required');
     if (!isNaN(finalAvg) && finalAvg < 75) titles.push('Overall: Intervention Needed');
     if (q1_total >= 90) titles.push('Excellent Start in Q1');
     if (!isNaN(finalAvg) && finalAvg >= 90) titles.push('Outstanding Yearly Achievement');

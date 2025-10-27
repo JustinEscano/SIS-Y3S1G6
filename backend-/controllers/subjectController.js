@@ -428,6 +428,10 @@ const addStudentToSubject = asyncHandler(async (req, res) => {
       error: 'Student not found'
     });
   }
+  // ensure subject has a teacher assigned
+  if (!subject.teacher && req.role === 'teacher') {
+    subject.teacher = req.user.id;
+  }
   subject.students.push(studentId);
   await subject.save();
   
@@ -437,7 +441,8 @@ const addStudentToSubject = asyncHandler(async (req, res) => {
       enrolledClasses: {
         subject: subject._id,
         academicYear: subject.academicYear,
-        status: 'active'
+        status: 'active',
+        assignedBy: req.user.id
       }
     }
   });

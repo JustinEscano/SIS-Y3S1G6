@@ -90,10 +90,15 @@ gradeSchema.pre('save', function (next) {  // Removed 'async' as no awaits; add 
     this.semesterGrades.sem2 = Math.round(((q3.total + q4.total) / 2) * 100) / 100;
   }
 
-  // Final
-  const { sem1, sem2 } = this.semesterGrades;
-  if (sem1 != null && sem2 != null) {
-    this.finalGrade = Math.round(((sem1 + sem2) / 2) * 100) / 100;
+  const quarterTotals = [q1?.total, q2?.total, q3?.total, q4?.total].filter((val) => val != null);
+  if (quarterTotals.length > 0) {
+    const avg = quarterTotals.reduce((sum, val) => sum + val, 0) / quarterTotals.length;
+    this.finalGrade = Math.round(avg * 10) / 10;
+  } else {
+    const { sem1, sem2 } = this.semesterGrades;
+    if (sem1 != null && sem2 != null) {
+      this.finalGrade = Math.round(((sem1 + sem2) / 2) * 100) / 100;
+    }
   }
 
   // Letters & remarks (only if final computed)
@@ -117,52 +122,85 @@ gradeSchema.statics.getProgressReport = async function(studentId, subjectId = nu
 
   const pipeline = [
     { $match: match },
-    { $sort: { subject: 1, academicYear: 1 } }, // FIXED: String sort OK ("2023-2024" < "2024-2025")
-    { $group: {
+    { $sort: { subject: 1, academicYear: 1 } },
+    {
+      $group: {
         _id: '$subject',
-        grades: { $push: {
-          academicYear: '$academicYear', // String
-          finalGrade: '$finalGrade',
-          letterGrade: '$letterGrade'
-        }}
-      }
-    },
-    { $addFields: {
-        progress: {
-          $map: {
-            input: '$grades',
-            as: 'g',
-            in: {
-              $mergeObjects: [
-                '$$g',
-                {
-                  delta: {
-                    $cond: {
-                      if: { $eq: [{ $indexOfArray: ['$grades.academicYear', '$$g.academicYear'] }, 0] },
-                      then: null,
-                      else: {
-                        $subtract: [
-                          '$$g.finalGrade', // Numbers only for math
-                          { $arrayElemAt: [
-                            '$grades.finalGrade',
-                            { $subtract: [{ $indexOfArray: ['$grades.academicYear', '$$g.academicYear'] }, 1] }
-                          ]}
-                        ]
-                      }
-                    }
-                  }
-                }
-              ]
+        grades: {
+          $push: {
+            academicYear: '$academicYear',
+            finalGrade: '$finalGrade',
+            letterGrade: '$letterGrade',
+            quarterTotals: {
+              q1: '$quarterGrades.q1.total',
+              q2: '$quarterGrades.q2.total',
+              q3: '$quarterGrades.q3.total',
+              q4: '$quarterGrades.q4.total'
             }
           }
         }
       }
     },
-    { $project: { _id: 0, subject: '$_id', progress: 1 } }
+    { $project: { _id: 0, subject: '$_id', grades: 1 } }
   ];
 
-  const results = await this.aggregate(pipeline);
-  return results; // e.g., [{ subject: ID, progress: [{ year: "2024", grade: 85, delta: null }, { year: "2025", grade: 90, delta: 5 }] }]
+  const aggregates = await this.aggregate(pipeline);
+
+  const computeLetter = (grade) => {
+    if (grade == null) return null;
+    if (grade >= 90) return 'A';
+    if (grade >= 85) return 'B';
+    if (grade >= 80) return 'C';
+    if (grade >= 75) return 'D';
+    return 'F';
+  };
+
+  return aggregates.map((item) => {
+    const progress = [];
+    let previousFinal = null;
+
+    item.grades.forEach((entry) => {
+      const quartersRaw = entry.quarterTotals || {};
+      const quarterTotals = {
+        q1: quartersRaw.q1 != null ? Number(quartersRaw.q1.toFixed ? quartersRaw.q1.toFixed(1) : quartersRaw.q1) : (typeof quartersRaw.q1 === 'number' ? Number(quartersRaw.q1.toFixed(1)) : null),
+        q2: quartersRaw.q2 != null ? Number(quartersRaw.q2.toFixed ? quartersRaw.q2.toFixed(1) : quartersRaw.q2) : (typeof quartersRaw.q2 === 'number' ? Number(quartersRaw.q2.toFixed(1)) : null),
+        q3: quartersRaw.q3 != null ? Number(quartersRaw.q3.toFixed ? quartersRaw.q3.toFixed(1) : quartersRaw.q3) : (typeof quartersRaw.q3 === 'number' ? Number(quartersRaw.q3.toFixed(1)) : null),
+        q4: quartersRaw.q4 != null ? Number(quartersRaw.q4.toFixed ? quartersRaw.q4.toFixed(1) : quartersRaw.q4) : (typeof quartersRaw.q4 === 'number' ? Number(quartersRaw.q4.toFixed(1)) : null),
+      };
+
+      const quarterValues = Object.values(quarterTotals).filter((val) => typeof val === 'number' && !Number.isNaN(val));
+      let final = typeof entry.finalGrade === 'number' ? entry.finalGrade : null;
+      if (final == null && quarterValues.length > 0) {
+        const avg = quarterValues.reduce((sum, val) => sum + val, 0) / quarterValues.length;
+        final = Math.round(avg * 10) / 10;
+      }
+      const finalRounded = final != null ? Number(final.toFixed(1)) : null;
+
+      let delta = null;
+      if (finalRounded != null && previousFinal != null) {
+        delta = Number((finalRounded - previousFinal).toFixed(1));
+      }
+
+      const letter = entry.letterGrade || computeLetter(finalRounded);
+
+      progress.push({
+        academicYear: entry.academicYear,
+        finalGrade: finalRounded,
+        letterGrade: letter,
+        quarterTotals,
+        delta,
+      });
+
+      if (finalRounded != null) {
+        previousFinal = finalRounded;
+      }
+    });
+
+    return {
+      subject: item.subject,
+      progress,
+    };
+  });
 };
 
 module.exports = mongoose.model('Grade', gradeSchema);
