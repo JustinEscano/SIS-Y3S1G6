@@ -10,6 +10,7 @@ const {
   changePassword,
   getAnalyticsSummary
 } = require('../controllers/adminController');
+const { createInviteCode, listInviteCodes } = require('../controllers/inviteCodeController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
 // All admin routes require authentication and superadmin role
@@ -39,5 +40,11 @@ router.put('/users/:id/password', changePassword);
 
 // DELETE /api/admin/users/:id - Delete a user
 router.delete('/users/:id', deleteUser);
+
+// POST /api/admin/invite-codes - Generate and email invite code
+router.post('/invite-codes', createInviteCode);
+
+// GET /api/admin/invite-codes - View recent invite codes
+router.get('/invite-codes', listInviteCodes);
 
 module.exports = router;

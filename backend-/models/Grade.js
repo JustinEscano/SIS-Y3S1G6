@@ -117,8 +117,10 @@ gradeSchema.pre('save', function (next) {  // Removed 'async' as no awaits; add 
 
 // FIXED: Static method for progress comparison (restructured pipeline to avoid self-reference errors; works with String academicYear)
 gradeSchema.statics.getProgressReport = async function(studentId, subjectId = null) {
-  const match = { student: studentId };
-  if (subjectId) match.subject = subjectId;
+  const match = { student: new mongoose.Types.ObjectId(studentId) };
+  if (subjectId) {
+    match.subject = new mongoose.Types.ObjectId(subjectId);
+  }
 
   const pipeline = [
     { $match: match },

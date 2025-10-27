@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
 const Student = require('../models/Student');
 const User = require('../models/User');
+const InviteCode = require('../models/InviteCode');
 
 /**
  * Generates JWT tokens for access/refresh.
@@ -47,21 +48,34 @@ const register = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Name, email, password, and invite code are required' });
   }
 
-  // Determine role based on invite code
-  let role;
-  if (inviteCode === process.env.STUDENT_INVITE_CODE) {
-    role = 'student';
-  } else if (inviteCode === process.env.TEACHER_INVITE_CODE) {
-    role = 'teacher';
-  } else if (inviteCode === process.env.SUPERADMIN_INVITE_CODE) {
-    role = 'superadmin';
-  } else {
-    console.warn('🚫 Invalid invite code provided');
-    return res.status(400).json({ message: 'Invalid invite code' });
+  const normalizedEmail = email.toLowerCase().trim();
+  const sanitizedInviteCode = String(inviteCode).trim().toUpperCase();
+
+  const invite = await InviteCode.findOne({
+    code: sanitizedInviteCode,
+    email: normalizedEmail,
+    usedAt: null,
+  });
+
+  if (!invite) {
+    console.warn('🚫 Invalid or already used invite code provided', {
+      email: normalizedEmail,
+      inviteCode: sanitizedInviteCode,
+    });
+    return res.status(400).json({ message: 'Invalid or expired invite code' });
   }
 
-  const normalizedEmail = email.toLowerCase().trim();
-  console.log(`📝 Registration attempt for email: ${normalizedEmail}, role: ${role}`);
+  if (invite.expiresAt <= new Date()) {
+    console.warn('🚫 Expired invite code used', {
+      email: normalizedEmail,
+      inviteCode: sanitizedInviteCode,
+      expiresAt: invite.expiresAt,
+    });
+    return res.status(400).json({ message: 'Invite code has expired. Please request a new one.' });
+  }
+
+  const role = invite.role;
+  console.log(`📝 Registration attempt for email: ${normalizedEmail}, role: ${role}, inviteId: ${invite._id}`);
 
   // Check if user already exists
   const existingStudent = await Student.findOne({ email: normalizedEmail });
@@ -117,6 +131,18 @@ const register = asyncHandler(async (req, res) => {
         name: newUser.name
       }
     });
+
+    try {
+      await InviteCode.findByIdAndUpdate(invite._id, {
+        $set: {
+          usedAt: new Date(),
+          usedBy: newUser._id,
+          usedByRole: role,
+        },
+      });
+    } catch (inviteUpdateErr) {
+      console.error('⚠️ Failed to mark invite code as used:', inviteUpdateErr);
+    }
   } catch (error) {
     console.error('❌ Registration error:', error);
     res.status(500).json({ message: 'Registration failed', error: error.message });
