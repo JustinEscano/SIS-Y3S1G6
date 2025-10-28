@@ -792,13 +792,6 @@ const SubjectOverview = () => {
                             {loading.action && currentTab === 'grades' ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" /> : <FontAwesomeIcon icon={faDownload} />}
                             Export XLSX
                         </button>
-                        <label
-                            className={`inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition ${loading.action ? 'cursor-not-allowed opacity-60' : 'hover:bg-blue-700'}`}
-                        >
-                            {loading.action && currentTab === 'grades' ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" /> : <FontAwesomeIcon icon={faUpload} />}
-                            Import XLSX
-                            <input ref={fileInputRef} type="file" accept=".xlsx" onChange={handleImportGrades} className="hidden" disabled={loading.action} />
-                        </label>
                     </div>
                 </div>
 

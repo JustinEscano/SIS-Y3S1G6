@@ -17,16 +17,6 @@ function Topbar() {
       </div>
 
       <div className="topbar-right">
-        <FontAwesomeIcon
-          icon={faSearch}
-          className="icon"
-          aria-label="Search"
-        />
-        <FontAwesomeIcon
-          icon={faBell}
-          className="icon"
-          aria-label="Notifications"
-        />
         <img
           src={profilePic}
           alt="Profile"

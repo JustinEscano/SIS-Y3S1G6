@@ -1,8 +1,8 @@
-// src/pages/Teacher/Notifications.js (Teacher Version: Full notifications page with filters, bulk actions, and read/unread)
+// src/pages/Student/Notifications.js (Updated: Removed Test button; added global counts for filters that don't change on tab switch)
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import NotificationService from '../../../services/notificationService'; // Adjust path as needed
-import { ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -11,18 +11,19 @@ const Notifications = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [globalUnread, setGlobalUnread] = useState(0); // Global unread count
-  const [globalRead, setGlobalRead] = useState(0); // Global read count
+  const [globalUnread, setGlobalUnread] = useState(0); // NEW: Global unread count
+  const [globalRead, setGlobalRead] = useState(0); // NEW: Global read count
   const [selectAll, setSelectAll] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const limit = 10;
-  // TODO: Replace with dynamic teacher._id from auth context in production
-  const userId = '68efb429f004d451b418c8c1'; // Sample Teacher ID from DB
+  // FIXED: Updated to actual Student ID with notifications (from DB: "68e9b754beb6f72e4ab8ee15")
+  // TODO: Replace with dynamic user._id from auth context in production
+  const userId = '68e9b754beb6f72e4ab8ee15';
 
   useEffect(() => {
-    fetchCounts(); // Fetch global counts on mount
+    fetchCounts(); // NEW: Fetch global counts on mount
     fetchNotifications();
   }, []); // Initial load
 
@@ -30,7 +31,7 @@ const Notifications = () => {
     fetchNotifications();
   }, [filter, currentPage]);
 
-  // Fetch global unread and read counts (independent of filter/pagination)
+  // NEW: Fetch global unread and read counts (independent of filter/pagination)
   const fetchCounts = async () => {
     try {
       const [unreadData, readData] = await Promise.all([
@@ -91,13 +92,15 @@ const Notifications = () => {
         newSet.delete(notificationId);
         return newSet;
       });
-      fetchCounts(); // Update global counts
+      // NEW: Update global counts after action
+      fetchCounts();
     } catch (error) {
       console.error('Failed to mark as read:', error);
       setError('Failed to mark as read.');
     }
   };
 
+  // NEW: Mark as unread for individual
   const markAsUnread = async (notificationId) => {
     try {
       await NotificationService.markAsUnread(userId, notificationId);
@@ -113,7 +116,8 @@ const Notifications = () => {
         newSet.delete(notificationId);
         return newSet;
       });
-      fetchCounts(); // Update global counts
+      // NEW: Update global counts after action
+      fetchCounts();
     } catch (error) {
       console.error('Failed to mark as unread:', error);
       setError('Failed to mark as unread.');
@@ -133,13 +137,15 @@ const Notifications = () => {
       );
       setSelectedIds(new Set());
       setSelectAll(false);
-      fetchCounts(); // Update global counts
+      // NEW: Update global counts after action
+      fetchCounts();
     } catch (error) {
       console.error('Failed to bulk mark as read:', error);
       setError('Failed to bulk mark as read.');
     }
   };
 
+  // NEW: Bulk mark as unread
   const bulkMarkAsUnread = async () => {
     if (selectedIds.size === 0) return;
     try {
@@ -153,7 +159,8 @@ const Notifications = () => {
       );
       setSelectedIds(new Set());
       setSelectAll(false);
-      fetchCounts(); // Update global counts
+      // NEW: Update global counts after action
+      fetchCounts();
     } catch (error) {
       console.error('Failed to bulk mark as unread:', error);
       setError('Failed to bulk mark as unread.');
@@ -196,12 +203,15 @@ const Notifications = () => {
     }
   };
 
+  const unreadNotifications = notifications.filter(n => !n.read).length;
+  const readNotifications = notifications.filter(n => n.read).length;
+
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading notifications...</div>;
   }
 
   return (
-    <div className="page-container min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -213,9 +223,10 @@ const Notifications = () => {
             Back
           </button>
           <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-          <p className="text-sm text-gray-600 mt-1">{globalUnread} unread</p>
+          <p className="text-sm text-gray-600 mt-1">{globalUnread} unread</p> {/* UPDATED: Use globalUnread */}
         </div>
         <div className="flex items-center space-x-2">
+          {/* REMOVED: Test button */}
           <button
             onClick={fetchNotifications}
             className="flex items-center text-blue-600 hover:text-blue-700"
@@ -254,8 +265,9 @@ const Notifications = () => {
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            Unread ({globalUnread})
+            Unread ({globalUnread}) {/* UPDATED: Use globalUnread */}
           </button>
+          {/* NEW: Read filter tab */}
           <button
             onClick={() => setFilter('read')}
             className={`px-4 py-2 rounded-lg text-sm font-medium ${
@@ -264,7 +276,7 @@ const Notifications = () => {
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            Read ({globalRead})
+            Read ({globalRead}) {/* UPDATED: Use globalRead */}
           </button>
         </div>
       </div>
@@ -275,6 +287,7 @@ const Notifications = () => {
           <div className="flex items-center justify-between">
             <span className="text-sm text-blue-800">{selectedIds.size} selected</span>
             <div className="flex space-x-2">
+              {/* NEW: Mark as Read button */}
               <button
                 onClick={bulkMarkAsRead}
                 className="flex items-center px-3 py-1 text-xs text-green-700 hover:text-green-900 font-medium bg-green-100 rounded border border-green-300"
@@ -282,6 +295,7 @@ const Notifications = () => {
                 <EyeIcon className="h-3 w-3 mr-1" />
                 Read
               </button>
+              {/* NEW: Mark as Unread button */}
               <button
                 onClick={bulkMarkAsUnread}
                 className="flex items-center px-3 py-1 text-xs text-red-700 hover:text-red-900 font-medium bg-red-100 rounded border border-red-300"
@@ -344,6 +358,7 @@ const Notifications = () => {
                       {new Date(notif.createdAt).toLocaleString()} {notif.read && '(Read)'}
                     </p>
                   </div>
+                  {/* NEW: Individual read/unread buttons */}
                   <div className="flex space-x-1 ml-2">
                     <button
                       onClick={(e) => {

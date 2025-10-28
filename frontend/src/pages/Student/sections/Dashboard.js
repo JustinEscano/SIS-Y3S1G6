@@ -347,11 +347,6 @@ const StudentDashboard = () => {
                 </p>
               </div>
             </div>
-            <div className="flex flex-col items-start gap-3 text-sm md:items-end">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white">
-                Forecast formula: (0.6 × current average) + (0.3 × improvement trend)
-              </span>
-            </div>
           </div>
 
           {error && (

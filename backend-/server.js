@@ -13,6 +13,7 @@ const gradeRoutes = require('./routes/gradeRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes'); // FIXED: Added missing attendance routes
 const adminRoutes = require('./routes/adminRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
+const notificationRoutes = require('./routes/notificationRoutes')
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/api/grades', gradeRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/teacher', teacherRoutes);
+app.use('/api/notifications', notificationRoutes)
 
 // ⚠️ Global error handler
 app.use(errorHandler);
