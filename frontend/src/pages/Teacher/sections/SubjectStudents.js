@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExclamationTriangle, faPlus, faSearch, faTimes, faChartLine, faArrowLeft, faTrash, faExclamationCircle, faSpinner, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
+import { faExclamationTriangle, faPlus, faSearch, faTimes, faChartLine, faArrowLeft, faTrash, faExclamationCircle, faSpinner, faCalendarCheck, faUserGroup, faLayerGroup, faUserShield } from '@fortawesome/free-solid-svg-icons';
+
 import subjectService from '../../../services/subjectService';
 import studentService from '../../../services/studentService';
 import LoadingSpinner from '../../../components/loadingSpinner';
@@ -291,6 +292,28 @@ const SubjectStudents = () => {
         </div>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <FontAwesomeIcon icon={faUserGroup} className="text-[#81020b] text-xl" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Total enrolled</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">{students.length}</p>
+          <p className="mt-3 text-xs text-gray-500">Active learners in this subject.</p>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <FontAwesomeIcon icon={faLayerGroup} className="text-sky-500 text-xl" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Sections represented</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">{students.length}</p>
+          <p className="mt-3 text-xs text-gray-500 line-clamp-1">{students.length > 0 ? students.map(student => student.section).join(', ') : 'Not specified'}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <FontAwesomeIcon icon={faUserShield} className="text-emerald-500 text-xl" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Guardians on file</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">{students.length}</p>
+          <p className="mt-3 text-xs text-gray-500 line-clamp-2">{students.length > 0 ? `Latest enrollments: ${students.map(student => student.name).join(', ')}` : 'Invite students to join the class.'}</p>
+        </div>
+      </div>
+
       {/* Students Section */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">Students ({students.length})</h2>
@@ -385,9 +408,10 @@ const SubjectStudents = () => {
 
       {/* Enroll Existing Student Modal - Updated: Loading state during fetch */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-[9998] bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto shadow-xl">
             <h3 className="text-xl font-semibold text-gray-800 mb-4">Enroll Existing Student</h3>
+            
             
             {/* Filter Dropdown */}
             <div className="mb-4">
@@ -513,10 +537,10 @@ const SubjectStudents = () => {
 
       {/* Delete Confirmation Modal (unchanged) */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
-            <div className="flex items-start mb-4">
-              <FontAwesomeIcon icon={faExclamationCircle} className="text-2xl text-red-500 mr-3 mt-1 flex-shrink-0" />
+        <div className="fixed inset-0 flex items-center justify-center z-[9998] bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <div className="flex items-center mb-4 text-red-600">
+              <FontAwesomeIcon icon={faExclamationCircle} className="text-2xl mr-2" />
               <div>
                 <h3 className="text-lg font-semibold text-gray-800">Confirm Removal</h3>
                 <p className="text-sm text-gray-600">

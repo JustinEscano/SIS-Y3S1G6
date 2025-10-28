@@ -8,7 +8,9 @@ const {
   createUser,
   updateUser,
   changePassword,
-  getAnalyticsSummary
+  getAnalyticsSummary,
+  generateInviteCode,
+  getInvites
 } = require('../controllers/adminController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
@@ -39,5 +41,11 @@ router.put('/users/:id/password', changePassword);
 
 // DELETE /api/admin/users/:id - Delete a user
 router.delete('/users/:id', deleteUser);
+
+// POST /api/admin/invites - Generate invite code
+router.post('/invites', generateInviteCode);
+
+// GET /api/admin/invites - Get all invites
+router.get('/invites', getInvites);
 
 module.exports = router;

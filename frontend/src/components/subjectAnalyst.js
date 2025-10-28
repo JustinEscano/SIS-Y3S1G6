@@ -10,7 +10,25 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faArrowLeft, faExclamationTriangle, faEdit, faTrash, faCheck, faTimes, faFileExport } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faSpinner, 
+  faArrowLeft, 
+  faExclamationTriangle, 
+  faEdit, 
+  faTrash, 
+  faCheck, 
+  faTimes, 
+  faFileExport,
+  faChartLine,
+  faBullseye,
+  faBookOpen,
+  faArrowTrendUp,
+  faCalendarAlt,
+  faUserGraduate,
+  faCircleExclamation,
+  faChevronLeft,
+  faChevronRight
+} from '@fortawesome/free-solid-svg-icons';
 
 import {
   Chart as ChartJS,
@@ -28,7 +46,7 @@ import subjectService from '../services/subjectService';
 import attendanceService from '../services/attendanceService';
 import { useAuth } from '../context/authContext';
 import { useGradePredictions } from '../hooks/useGradePredictions';
-import LoadingSpinner from './loadingSpinner'; // Adjusted path
+import LoadingSpinner from './loadingSpinner';
 
 ChartJS.register(
   CategoryScale,
@@ -58,17 +76,34 @@ const CHART_BASE_OPTIONS = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: { position: 'top' },
+    legend: { 
+      position: 'top',
+      labels: {
+        usePointStyle: true,
+        padding: 15
+      }
+    },
   },
   scales: {
-    y: { beginAtZero: true, max: 100, ticks: { stepSize: 10 } },
+    y: { 
+      beginAtZero: true, 
+      max: 100, 
+      ticks: { stepSize: 10 },
+      grid: {
+        color: 'rgba(0, 0, 0, 0.05)'
+      }
+    },
+    x: {
+      grid: {
+        color: 'rgba(0, 0, 0, 0.05)'
+      }
+    }
   },
 };
 
-// REFACTORED: Renamed function and accept props
 const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
   const navigate = useNavigate();
-  const { token } = useAuth(); // Token still comes from context
+  const { token } = useAuth();
   
   // Core data states
   const [studentData, setStudentData] = useState(null);
@@ -94,6 +129,10 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
   const [newComment, setNewComment] = useState({ title: '', content: '' });
   const [editingComment, setEditingComment] = useState(null);
   const [editingCommentData, setEditingCommentData] = useState({ title: '', content: '' });
+  
+  // Pagination states
+  const [currentCommentPage, setCurrentCommentPage] = useState(1);
+  const [commentsPerPage, setCommentsPerPage] = useState(5);
 
   // Predictions hook
   const {
@@ -150,6 +189,16 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
     return modes;
   }, [q1_total, q2_total, q3_total, q4_total]);
 
+  // Paginated comments
+  const paginatedComments = useMemo(() => {
+    const startIndex = (currentCommentPage - 1) * commentsPerPage;
+    const endIndex = startIndex + commentsPerPage;
+    return comments.slice(startIndex, endIndex);
+  }, [comments, currentCommentPage, commentsPerPage]);
+
+  // Calculate total pages
+  const totalCommentPages = Math.ceil(comments.length / commentsPerPage);
+
   // Reset prediction mode if invalid
   useEffect(() => {
     if (!availablePredictionModes.find(m => m.value === predictionMode)) {
@@ -166,7 +215,12 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
     else setDataScope('q1q2');
   }, [q1_total, q2_total, q3_total, q4_total]);
 
-  // Initial fetch (depends on props now)
+  // Reset to first page when comments change or items per page changes
+  useEffect(() => {
+    setCurrentCommentPage(1);
+  }, [comments.length, commentsPerPage]);
+
+  // Initial fetch
   useEffect(() => {
     if (!subjectId || !studentId || !token) {
       setError('Invalid parameters or authentication missing.');
@@ -174,7 +228,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
       return;
     }
     fetchData();
-  }, [subjectId, studentId, token]); // REFACTORED: Use props
+  }, [subjectId, studentId, token]);
 
   const fetchData = useCallback(async (skipLoading = false) => {
     const wasLoading = !skipLoading;
@@ -183,7 +237,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
       setError(null);
       
       const [subjectResponse, studentResponse, attRes] = await Promise.all([
-        subjectService.getSubject(subjectId, token), // token added for consistency
+        subjectService.getSubject(subjectId, token),
         gradeService.getStudentSubjectGrades(subjectId, studentId, token),
         attendanceService.getStudentSubjectAttendance(subjectId, studentId, {}, token)
       ]);
@@ -216,7 +270,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
     } finally {
       if (wasLoading) setLoading(false);
     }
-  }, [subjectId, studentId, token]); // REFACTORED: Use props
+  }, [subjectId, studentId, token]);
 
   const handleGradeChange = useCallback((field, value) => {
     if (value === '' || (!isNaN(value) && Number(value) >= 0 && Number(value) <= 100)) {
@@ -373,7 +427,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
       const newCommentObjForPayload = {
         title: newComment.title || suggestedTitles[0],
         content: newComment.content,
-        author: user?.name || 'Teacher', // REFACTORED: Use user prop
+        author: user?.name || 'Teacher',
         timestamp: new Date().toISOString(),
       };
       const newCommentObjLocal = { ...newCommentObjForPayload, _id: tempId };
@@ -448,7 +502,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
             type="number"
             value={gradeInputs[cs]}
             onChange={(e) => handleGradeChange(cs, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             min="0" max="100"
             placeholder="CS"
           />
@@ -459,7 +513,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
             type="number"
             value={gradeInputs[exam]}
             onChange={(e) => handleGradeChange(exam, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             min="0" max="100"
             placeholder="Exam"
           />
@@ -470,7 +524,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
             type="number"
             value={totalVar != null ? totalVar.toFixed(1) : ''}
             readOnly
-            className="w-full px-3 py-2 border border-gray-300 bg-gray-100 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 bg-gray-100 rounded-xl"
             placeholder="Auto (Avg)"
           />
         </div>
@@ -478,171 +532,300 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
     );
   };
 
+  // Pagination Controls Component
+  const CommentPagination = () => (
+    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+      <div className="text-sm text-gray-500">
+        Showing {((currentCommentPage - 1) * commentsPerPage) + 1} to {Math.min(currentCommentPage * commentsPerPage, comments.length)} of {comments.length} comments
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setCurrentCommentPage(prev => Math.max(prev - 1, 1))}
+          disabled={currentCommentPage === 1}
+          className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-gray-700"
+        >
+          <FontAwesomeIcon icon={faChevronLeft} className="text-xs" />
+          Previous
+        </button>
+        
+        <div className="flex items-center gap-1">
+          {Array.from({ length: totalCommentPages }, (_, i) => i + 1).map(page => (
+            <button
+              key={page}
+              onClick={() => setCurrentCommentPage(page)}
+              className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                currentCommentPage === page
+                  ? 'bg-sky-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => setCurrentCommentPage(prev => Math.min(prev + 1, totalCommentPages))}
+          disabled={currentCommentPage === totalCommentPages}
+          className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-gray-700"
+        >
+          Next
+          <FontAwesomeIcon icon={faChevronRight} className="text-xs" />
+        </button>
+      </div>
+    </div>
+  );
+
   if (loading) {
-    return <LoadingSpinner message="Loading student analytics..." size="lg" color="blue" fullScreen={false} />;
+    return (
+      <div className="space-y-6 px-4 pb-16 pt-10 sm:px-8">
+        <div className="rounded-3xl border border-gray-200 bg-white/95 p-6 shadow-sm">
+          <p className="text-center text-sm text-gray-500">Loading student analytics…</p>
+        </div>
+      </div>
+    );
   }
 
   if (error && !studentData) {
     return (
-      <div className="w-full p-6 bg-white rounded-lg shadow-md border border-red-200 mx-auto max-w-4xl">
-        <div className="flex items-center mb-4">
-          <FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-red-500 mr-2" />
-          <h2 className="text-xl font-semibold text-gray-800">Oops! Something went wrong</h2>
+      <div className="space-y-6 px-4 pb-16 pt-10 sm:px-8">
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 shadow-sm">
+          <div className="flex items-center mb-4">
+            <FontAwesomeIcon icon={faCircleExclamation} className="text-xl text-red-500 mr-2" />
+            <h2 className="text-xl font-semibold text-red-800">Oops! Something went wrong</h2>
+          </div>
+          <p className="text-red-700 mb-6">{error}</p>
+          <button
+            onClick={() => navigate(backUrl)}
+            className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-semibold"
+          >
+            Go Back
+          </button>
         </div>
-        <p className="text-gray-600 mb-6">{error}</p>
-        <button
-          onClick={() => navigate(backUrl)} // REFACTORED: Use prop
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-        >
-          Go Back
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="p-6 w-full max-w-none">
+    <div className="space-y-8 px-4 pb-16 pt-10 sm:px-8">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            {studentData?.student?.name || 'Student'} - Analytics for {subjectInfo?.name || 'Subject'}
-          </h1>
-          <p className="text-lg text-gray-600">
-            Grade {subjectInfo?.gradeLevel || 'N/A'} - {subjectInfo?.academicYear || 'N/A'}
-          </p>
-        </div>
-        <button
-          onClick={() => navigate(backUrl)} // REFACTORED: Use prop
-          className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors"
-        >
-          <FontAwesomeIcon icon={faArrowLeft} />
-          Back
-        </button>
-      </div>
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-sky-700 via-sky-600 to-sky-900 text-white shadow-2xl">
+        <div
+          className="absolute inset-0 opacity-25"
+          style={{ backgroundImage: "radial-gradient(circle at top left, rgba(255,255,255,0.6), transparent 55%)" }}
+          aria-hidden="true"
+        />
+        <div className="relative z-10 space-y-6 p-6 md:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white">
+                <FontAwesomeIcon icon={faUserGraduate} /> Subject Analytics
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold text-white md:text-4xl">
+                  {studentData?.student?.name || 'Student'} - {subjectInfo?.name || 'Subject'}
+                </h1>
+                <p className="text-sm text-white/85">
+                  Grade {subjectInfo?.gradeLevel || 'N/A'} - {subjectInfo?.academicYear || 'N/A'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate(backUrl)}
+              className="flex items-center gap-2 px-6 py-3 bg-white/20 text-white font-semibold rounded-xl hover:bg-white/30 transition-colors border border-white/30"
+            >
+              <FontAwesomeIcon icon={faArrowLeft} />
+              Back
+            </button>
+          </div>
 
-      {/* Transient Error Banner */}
-      {error && studentData && (
-        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg flex justify-between items-center">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-700 hover:text-red-900">×</button>
+          {error && studentData && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              <FontAwesomeIcon icon={faCircleExclamation} className="mr-2" />
+              {error}
+            </div>
+          )}
         </div>
-      )}
+      </section>
 
-      {/* Attendance Rate Progress Bar */}
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-        <h3 className="font-semibold text-gray-800 mb-4">Attendance Rate</h3>
-        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-          <div 
-            className="bg-green-600 h-2.5 rounded-full transition-all duration-300 ease-in-out" 
-            style={{ width: `${attendanceRate}%` }}
-          ></div>
+      {/* Summary Cards */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold bg-sky-100 text-sky-600">
+            <FontAwesomeIcon icon={faChartLine} />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Current Average</p>
+            <p className="text-2xl font-semibold text-gray-900">{currentAvg.toFixed(1)}</p>
+            <p className="text-xs text-gray-500">Across all quarters</p>
+          </div>
         </div>
-        <p className="text-sm text-gray-500 mt-2">
-          {attendanceRate}% ({presentCount}/{totalSessions} sessions)
-        </p>
-      </div>
+
+        <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold bg-amber-100 text-amber-600">
+            <FontAwesomeIcon icon={faBullseye} />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {predictionMode === 'current' ? 'Recent Grade' : 'Predicted'}
+            </p>
+            <p className="text-2xl font-semibold text-gray-900">
+              {!isNaN(displayPredictValue) ? displayPredictValue.toFixed(1) : 'N/A'}
+            </p>
+            <p className="text-xs text-gray-500">
+              {predictionMode === 'current' ? 'Most recent actual' : 'Forecasted average'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold bg-emerald-100 text-emerald-600">
+            <FontAwesomeIcon icon={faBookOpen} />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Quarters Completed</p>
+            <p className="text-2xl font-semibold text-gray-900">{actualQuarters.length}</p>
+            <p className="text-xs text-gray-500">Out of 4 total</p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold bg-rose-100 text-rose-600">
+            <FontAwesomeIcon icon={faCalendarAlt} />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Attendance Rate</p>
+            <p className="text-2xl font-semibold text-gray-900">{attendanceRate}%</p>
+            <p className="text-xs text-gray-500">{presentCount}/{totalSessions} sessions</p>
+          </div>
+        </div>
+      </section>
 
       {/* Analytics Grid */}
-      <div className="grid grid-cols-3 gap-6 mb-8 w-full">
-        <div className="col-span-2 bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">Grade Progress Across Semesters</h3>
-          <div className="h-64 w-full">
-            <Line 
-              options={{ 
-                ...CHART_BASE_OPTIONS, 
-                plugins: { 
-                  ...CHART_BASE_OPTIONS.plugins, 
-                  title: { display: true, text: chartTitle } ,
-                  tooltip: {
-                    callbacks: {
-                      label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(1)}`
-                    }
-                  }
-                } 
-              }} 
-              data={chartData || { labels: [], datasets: [] }} 
-            />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-gray-800">Grade Prediction</h3>
-            <select
-              value={predictionMode}
-              onChange={(e) => setPredictionMode(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            >
-              {availablePredictionModes.map((mode) => (
-                <option key={mode.value} value={mode.value}>
-                  {mode.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-4 text-center">
-            <div>
-              <p className="text-sm text-gray-500">
-                {predictionMode === 'current' ? 'Current Average (Actual Grades Only)' : 'Current Average'}
-              </p>
-              <p className="text-2xl font-bold text-blue-600">{currentAvg.toFixed(1)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">
-                {predictionMode === 'current' 
-                  ? 'Most Recent Actual Grade' 
-                  : predictionMode === 'sem2' 
-                    ? 'Q3/Q4 Predicted Average (Blue Line)' 
-                    : 'Predicted Average (Blue Line)'
-                }
-              </p>
-              <p className="text-2xl font-bold text-green-600">
-                {!isNaN(displayPredictValue) ? displayPredictValue.toFixed(1) : 'N/A'}
-              </p>
-            </div>
-            {predictionMode !== 'current' && (
+      <section className="rounded-3xl border border-gray-200 bg-white/95 p-6 shadow-xl ring-1 ring-black/5">
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
               <div>
-                <p className="text-sm text-gray-500">Risk Level</p>
-                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                  riskLevel.includes('Low') ? 'bg-green-100 text-green-800' : 
-                  riskLevel.includes('Medium') ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {riskLevel}
-                </span>
+                <h2 className="text-xl font-semibold text-gray-900">Grade Progress Across Semesters</h2>
+                <p className="text-sm text-gray-500">Track actual vs predicted performance over time</p>
               </div>
-            )}
+            </div>
+            <div className="h-80 w-full">
+              <Line 
+                options={{ 
+                  ...CHART_BASE_OPTIONS, 
+                  plugins: { 
+                    ...CHART_BASE_OPTIONS.plugins, 
+                    title: { display: true, text: chartTitle },
+                    tooltip: {
+                      callbacks: {
+                        label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(1)}`
+                      }
+                    }
+                  } 
+                }} 
+                data={chartData || { labels: [], datasets: [] }} 
+              />
+            </div>
           </div>
-          {/* REFACTORED: Conditional "Edit" button */}
-          {user?.role !== 'student' && (
-            <div className="mt-6">
-              <div className="flex flex-wrap items-center gap-3">
+
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-gray-900">Grade Prediction</h3>
+                <select
+                  value={predictionMode}
+                  onChange={(e) => setPredictionMode(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                >
+                  {availablePredictionModes.map((mode) => (
+                    <option key={mode.value} value={mode.value}>
+                      {mode.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-4 text-center">
+                <div>
+                  <p className="text-sm text-gray-500">
+                    {predictionMode === 'current' ? 'Current Average (Actual Grades Only)' : 'Current Average'}
+                  </p>
+                  <p className="text-2xl font-bold text-sky-600">{currentAvg.toFixed(1)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">
+                    {predictionMode === 'current' 
+                      ? 'Most Recent Actual Grade' 
+                      : predictionMode === 'sem2' 
+                        ? 'Q3/Q4 Predicted Average' 
+                        : 'Predicted Average'
+                    }
+                  </p>
+                  <p className="text-2xl font-bold text-emerald-600">
+                    {!isNaN(displayPredictValue) ? displayPredictValue.toFixed(1) : 'N/A'}
+                  </p>
+                </div>
+                {predictionMode !== 'current' && (
+                  <div>
+                    <p className="text-sm text-gray-500">Risk Level</p>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                      riskLevel.includes('Low') ? 'bg-emerald-100 text-emerald-800' : 
+                      riskLevel.includes('Medium') ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {riskLevel}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            {user?.role !== 'student' && (
+              <div className="space-y-3">
                 <button
                   onClick={() => setShowGradeModal(true)}
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-sky-600 transition hover:bg-gray-100"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 shadow-sm"
                 >
-                  <FontAwesomeIcon icon={faEdit} /> Update grades
+                  <FontAwesomeIcon icon={faEdit} /> Update Grades
                 </button>
                 <button
                   onClick={handleExportGrades}
                   disabled={exporting}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-5 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 shadow-sm"
                 >
                   <FontAwesomeIcon icon={faFileExport} /> Export CSV
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Past Comments */}
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Past Comments</h2>
-        <p className="text-gray-600 mb-6">View and manage previous teacher comments.</p>
-        <div className="space-y-4 max-h-96 overflow-y-auto">
-          {comments.length > 0 ? (
-            comments.map((comment) => (
+      <section className="rounded-3xl border border-gray-200 bg-white/95 p-6 shadow-xl ring-1 ring-black/5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Past Comments</h2>
+            <p className="text-sm text-gray-500">View and manage previous teacher comments</p>
+          </div>
+          {comments.length > 5 && (
+            <select
+              value={commentsPerPage}
+              onChange={(e) => setCommentsPerPage(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+            >
+              <option value={5}>5 per page</option>
+              <option value={10}>10 per page</option>
+              <option value={25}>25 per page</option>
+              <option value={50}>50 per page</option>
+            </select>
+          )}
+        </div>
+        
+        <div className="space-y-4">
+          {paginatedComments.length > 0 ? (
+            paginatedComments.map((comment) => (
               <CommentItem
                 key={comment._id}
                 comment={comment}
@@ -654,16 +837,21 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
                 editingData={editingCommentData}
                 onEditChange={handleEditCommentChange}
                 saving={savingComment}
-                userRole={user?.role} // REFACTORED: Pass role
+                userRole={user?.role}
               />
             ))
           ) : (
-            <p className="text-gray-500 text-center py-8">No comments available yet.</p>
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500">
+              No comments available yet.
+            </div>
           )}
         </div>
-      </div>
 
-      {/* REFACTORED: Conditional "Add Comment" form */}
+        {/* Pagination Controls */}
+        {comments.length > commentsPerPage && <CommentPagination />}
+      </section>
+
+      {/* Add Comment Form */}
       {user?.role !== 'student' && (
         <AddCommentForm
           newComment={newComment}
@@ -675,7 +863,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
         />
       )}
 
-      {/* REFACTORED: Conditional "Grade Modal" */}
+      {/* Grade Modal */}
       {user?.role !== 'student' && (
         <GradeModal
           isOpen={showGradeModal}
@@ -695,7 +883,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
 
 // Sub-component: Individual Comment Item
 const CommentItem = ({ comment, isEditing, onEdit, onDelete, onSave, onCancel, editingData, onEditChange, saving, userRole }) => (
-  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 relative group">
+  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 relative group">
     <div className="flex justify-between items-start">
       <div className="flex-1">
         {isEditing ? (
@@ -704,14 +892,14 @@ const CommentItem = ({ comment, isEditing, onEdit, onDelete, onSave, onCancel, e
               type="text"
               value={editingData.title}
               onChange={(e) => onEditChange('title', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               placeholder="Title"
             />
             <textarea
               value={editingData.content}
               onChange={(e) => onEditChange('content', e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white"
               placeholder="Content"
             />
           </div>
@@ -725,12 +913,11 @@ const CommentItem = ({ comment, isEditing, onEdit, onDelete, onSave, onCancel, e
           </>
         )}
       </div>
-      {/* REFACTORED: Conditional actions */}
       {userRole !== 'student' && (
         <div className="ml-4 flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition">
           {isEditing ? (
             <>
-              <button onClick={onSave} disabled={saving} className="p-1 text-green-500 hover:text-green-700 disabled:opacity-50">
+              <button onClick={onSave} disabled={saving} className="p-1 text-emerald-500 hover:text-emerald-700 disabled:opacity-50">
                 <FontAwesomeIcon icon={faCheck} />
               </button>
               <button onClick={onCancel} disabled={saving} className="p-1 text-gray-500 hover:text-gray-700 disabled:opacity-50">
@@ -755,10 +942,10 @@ const CommentItem = ({ comment, isEditing, onEdit, onDelete, onSave, onCancel, e
 
 // Sub-component: Add New Comment Form
 const AddCommentForm = ({ newComment, onChange, onAdd, suggestedTitle, editingComment, saving }) => (
-  <div className="bg-white rounded-lg shadow-sm border p-6">
-    <h2 className="text-xl font-semibold text-gray-800 mb-4">Add New Comment</h2>
+  <section className="rounded-3xl border border-gray-200 bg-white/95 p-6 shadow-xl ring-1 ring-black/5">
+    <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New Comment</h2>
     {editingComment && (
-      <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-md text-yellow-800 text-sm">
+      <div className="mb-4 p-3 bg-amber-100 border border-amber-300 rounded-2xl text-amber-800 text-sm">
         Editing comment above—finish or cancel there first.
       </div>
     )}
@@ -770,7 +957,7 @@ const AddCommentForm = ({ newComment, onChange, onAdd, suggestedTitle, editingCo
           value={newComment.title || ''}
           onChange={(e) => onChange('title', e.target.value)}
           disabled={!!editingComment}
-          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+          className={`w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white ${
             editingComment ? 'bg-gray-100 cursor-not-allowed' : ''
           }`}
           placeholder={`Suggested: ${suggestedTitle || 'General Comment'}`}
@@ -783,7 +970,7 @@ const AddCommentForm = ({ newComment, onChange, onAdd, suggestedTitle, editingCo
           onChange={(e) => onChange('content', e.target.value)}
           rows={4}
           disabled={!!editingComment}
-          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
+          className={`w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white ${
             editingComment ? 'bg-gray-100 cursor-not-allowed' : ''
           }`}
           placeholder="Write your comment here..."
@@ -793,7 +980,7 @@ const AddCommentForm = ({ newComment, onChange, onAdd, suggestedTitle, editingCo
         <button
           onClick={onAdd}
           disabled={saving || !newComment.content.trim() || !!editingComment}
-          className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 bg-sky-600 text-white font-semibold rounded-xl hover:bg-sky-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
         >
           {saving ? (
             <>
@@ -806,7 +993,7 @@ const AddCommentForm = ({ newComment, onChange, onAdd, suggestedTitle, editingCo
         </button>
       </div>
     </div>
-  </div>
+  </section>
 );
 
 // Sub-component: Grade Input Modal
@@ -818,18 +1005,18 @@ const GradeModal = ({ isOpen, onClose, selectedQuarter, onQuarterChange, quarter
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-3xl shadow-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Enter Quarter Grades</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Enter Quarter Grades</h2>
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Select Quarter:</label>
           <select
             value={selectedQuarter}
             onChange={(e) => onQuarterChange(e.target.value)}
-            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           >
             <option value="q1">Quarter 1</option>
             <option value="q2">Quarter 2</option>
@@ -844,7 +1031,7 @@ const GradeModal = ({ isOpen, onClose, selectedQuarter, onQuarterChange, quarter
             type="number"
             value={!isNaN(calculatedFinal) ? calculatedFinal.toFixed(1) : 'N/A'}
             readOnly
-            className="w-full max-w-xs px-3 py-2 border border-gray-300 bg-gray-100 rounded-md"
+            className="w-full max-w-xs px-3 py-2 border border-gray-300 bg-gray-100 rounded-xl"
           />
           {!isNaN(predictedFinal) && (
             <p className="text-sm text-gray-500 mt-1">Predicted Final: {predictedFinal.toFixed(1)}</p>
@@ -854,14 +1041,14 @@ const GradeModal = ({ isOpen, onClose, selectedQuarter, onQuarterChange, quarter
           <button
             onClick={onClose}
             disabled={saving}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition disabled:opacity-50 font-semibold"
           >
             Cancel
           </button>
           <button
             onClick={onSave}
             disabled={saving}
-            className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            className="px-6 py-3 bg-sky-600 text-white font-semibold rounded-xl hover:bg-sky-700 transition disabled:opacity-50 shadow-sm"
           >
             {saving ? (
               <>

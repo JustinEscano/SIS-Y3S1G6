@@ -22,9 +22,7 @@ h1, h2, h3, h4, h5, h6 {
   color: #6B7280; 
 }
 
-.btn-login, .btn-google {
-  font-family: var(--font-subheading);
-}
+
 
 /* Add to your global CSS (e.g., src/index.css) for the spinner animation */
 @keyframes spin {

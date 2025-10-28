@@ -4,6 +4,8 @@ const User = require('../models/User');
 const Subject = require('../models/Subject');
 const Grade = require('../models/Grade');
 const Attendance = require('../models/Attendance');
+const Invite = require('../models/Invite');
+const { sendEmail } = require('../config/email');
 
 const getPastMonths = (count) => {
   if (count <= 0) return [];
@@ -189,7 +191,7 @@ const getUserById = asyncHandler(async (req, res) => {
  */
 const updateUser = asyncHandler(async (req, res) => {
   try {
-    const { name, email, department } = req.body;
+    const { name, email, department, newPassword } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -200,6 +202,14 @@ const updateUser = asyncHandler(async (req, res) => {
     if (name) user.name = name;
     if (email) user.email = email.toLowerCase().trim();
     if (department !== undefined) user.department = department;
+    if (newPassword) {
+      const trimmedPassword = newPassword.trim();
+      if (trimmedPassword.length < 6) {
+        return res.status(400).json({ message: 'New password must be at least 6 characters long' });
+      }
+      user.password = trimmedPassword;
+      user.markModified('password');
+    }
 
     await user.save();
     console.log(`✅ User updated: ${user.email}`);
@@ -485,6 +495,62 @@ const getAnalyticsSummary = asyncHandler(async (req, res) => {
   });
 });
 
+const generateInviteCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Generate random 8-character code
+    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+    
+    // Set expiration to 30 days from now
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+    
+    // Create and save invite
+    const invite = new Invite({
+      code,
+      email,
+      createdBy: req.user.id,
+      expiresAt
+    });
+    
+    await invite.save();
+    
+    // Send email
+    const emailSubject = 'Your Invitation Code';
+    const emailText = `Your one-time invite code is: ${code}\n\nThis code will expire in 30 days or after first use.`;
+    
+    await sendEmail(email, emailSubject, emailText);
+    
+    res.status(201).json({ success: true, code });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const getInvites = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    
+    const invites = await Invite.find()
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate('createdBy', 'name email')
+      .populate('usedBy', 'name email');
+    
+    const count = await Invite.countDocuments();
+    
+    res.json({
+      invites,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 module.exports = {
   getStats,
   getAllUsers,
@@ -493,5 +559,7 @@ module.exports = {
   createUser,
   updateUser,
   changePassword,
-  getAnalyticsSummary
+  getAnalyticsSummary,
+  generateInviteCode,
+  getInvites
 };

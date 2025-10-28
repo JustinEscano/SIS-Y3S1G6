@@ -1,5 +1,5 @@
 // src/pages/Teacher/Notifications.js (Teacher Version: Full notifications page with filters, bulk actions, and read/unread)
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import NotificationService from '../../../services/notificationService'; // Adjust path as needed
 import { ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
@@ -21,17 +21,7 @@ const Notifications = () => {
   // TODO: Replace with dynamic teacher._id from auth context in production
   const userId = '68efb429f004d451b418c8c1'; // Sample Teacher ID from DB
 
-  useEffect(() => {
-    fetchCounts(); // Fetch global counts on mount
-    fetchNotifications();
-  }, []); // Initial load
-
-  useEffect(() => {
-    fetchNotifications();
-  }, [filter, currentPage]);
-
-  // Fetch global unread and read counts (independent of filter/pagination)
-  const fetchCounts = async () => {
+  const fetchCounts = useCallback(async () => {
     try {
       const [unreadData, readData] = await Promise.all([
         NotificationService.getUserNotifications(userId, { read: false, limit: 1 }),
@@ -42,9 +32,9 @@ const Notifications = () => {
     } catch (error) {
       console.error('Failed to fetch notification counts:', error);
     }
-  };
+  }, [userId]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -62,7 +52,6 @@ const Notifications = () => {
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
       setError('Failed to load notifications. Please try refreshing or check if user ID is valid.');
-      // Fallback to mock data if needed (updated dates to match current 2025-10-28)
       setNotifications([
         { _id: '1', title: 'New Enrollment', message: 'You have been enrolled in Math C!', createdAt: '2025-10-28T10:00:00Z', read: false, type: 'enrollment' },
         { _id: '2', title: 'Grade Updated', message: 'Your Q1 grade in Math C has been updated to 85.', createdAt: '2025-10-27T14:30:00Z', read: true, type: 'grade_update' },
@@ -74,7 +63,15 @@ const Notifications = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, filter, limit, userId]);
+
+  useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const markAsRead = async (notificationId) => {
     try {
@@ -196,46 +193,103 @@ const Notifications = () => {
     }
   };
 
+  const summaryCards = useMemo(() => ([
+    {
+      label: 'All notifications',
+      value: total,
+      helper: 'Announcements, grading updates, and class reminders.',
+      accent: '#f97316'
+    },
+    {
+      label: 'Unread items',
+      value: globalUnread,
+      helper: 'Messages that still need attention.',
+      accent: '#22c55e'
+    },
+    {
+      label: 'Reviewed updates',
+      value: globalRead,
+      helper: 'History of changes you already checked.',
+      accent: '#3b82f6'
+    }
+  ]), [globalRead, globalUnread, total]);
+
+  const formatDate = (value) => {
+    try {
+      return new Date(value).toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return value;
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading notifications...</div>;
   }
 
   return (
-    <div className="page-container min-h-screen bg-gray-50 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-2"
-          >
-            <ChevronLeftIcon className="h-5 w-5 mr-1" />
-            Back
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-          <p className="text-sm text-gray-600 mt-1">{globalUnread} unread</p>
+    <div className="space-y-8 px-4 pb-16 pt-10 sm:px-8 min-h-screen bg-gray-50">
+      {/* Hero */}
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#410b13] via-[#8d1322] to-[#f25c74] text-white shadow-2xl">
+        <div
+          className="absolute inset-0 opacity-30"
+          style={{ backgroundImage: "radial-gradient(circle at 15% 20%, rgba(255,255,255,0.65), transparent 60%)" }}
+          aria-hidden="true"
+        />
+        <div className="relative z-10 space-y-8 p-6 md:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-4 max-w-2xl">
+              <button
+                onClick={() => navigate(-1)}
+                className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white hover:bg-white/20 transition"
+              >
+                <ChevronLeftIcon className="h-4 w-4" />
+                Back
+              </button>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold md:text-4xl text-white">Keep ahead of class updates</h1>
+                <p className="text-sm text-white">
+                  Survey grading changes, assignments, and roster activity at a glance. Apply filters or bulk actions to manage alerts quickly.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={fetchNotifications}
+              className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25 shadow-lg shadow-black/20"
+            >
+              <ArrowPathIcon className="h-5 w-5" />
+              Refresh feed
+            </button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {summaryCards.map((card) => (
+              <div
+                key={card.label}
+                className="rounded-2xl bg-white/18 p-5 backdrop-blur-md shadow-xl shadow-black/10 ring-1 ring-white/25"
+              >
+                <p className="text-xs uppercase tracking-wider text-white">{card.label}</p>
+                <p className="mt-3 text-3xl font-semibold text-white" style={{ textShadow: '0 8px 18px rgba(0,0,0,0.35)' }}>{card.value}</p>
+                <p className="mt-2 text-xs text-white leading-relaxed">{card.helper}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={fetchNotifications}
-            className="flex items-center text-blue-600 hover:text-blue-700"
-          >
-            <ArrowPathIcon className="h-5 w-5 mr-1" />
-            Refresh
-          </button>
-        </div>
-      </div>
+      </section>
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
           <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
 
       {/* Filter Tabs */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex space-x-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-lg text-sm font-medium ${
@@ -271,7 +325,7 @@ const Notifications = () => {
 
       {/* Bulk Actions */}
       {selectedIds.size > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-sm text-blue-800">{selectedIds.size} selected</span>
             <div className="flex space-x-2">
@@ -295,7 +349,7 @@ const Notifications = () => {
       )}
 
       {/* Notifications List */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center mb-4">
           <label className="flex items-center">
             <input
@@ -318,8 +372,8 @@ const Notifications = () => {
             {notifications.map((notif) => (
               <div
                 key={notif._id}
-                className={`rounded-lg p-4 border border-gray-200 hover:shadow-md cursor-pointer transition-shadow ${
-                  !notif.read ? 'bg-blue-50 border-blue-200' : 'bg-white'
+                className={`rounded-xl p-4 border border-gray-200 hover:shadow-lg cursor-pointer transition-all ${
+                  !notif.read ? 'bg-blue-50/80 border-blue-200' : 'bg-white'
                 }`}
               >
                 <div className="flex items-start space-x-3">
@@ -341,7 +395,7 @@ const Notifications = () => {
                     </div>
                     <p className="text-sm text-gray-600 mt-1">{notif.message}</p>
                     <p className={`text-xs mt-2 ${notif.read ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {new Date(notif.createdAt).toLocaleString()} {notif.read && '(Read)'}
+                      {formatDate(notif.createdAt)} {notif.read && '(Read)'}
                     </p>
                   </div>
                   <div className="flex space-x-1 ml-2">

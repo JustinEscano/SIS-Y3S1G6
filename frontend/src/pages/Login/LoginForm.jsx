@@ -1,7 +1,6 @@
-// components/LoginForm.jsx (Hybrid Version)
+// components/LoginForm.jsx (Simplified Version — No Google)
 import React from "react";
-import googleLogo from "../../assets/images/google-icon.png";
-import './LoginForm.css'; // Import hybrid CSS
+import "./LoginForm.css"; // Import hybrid CSS
 
 function LoginForm({ email, setEmail, password, setPassword, handleSubmit, error, switchMode }) {
   return (
@@ -41,28 +40,18 @@ function LoginForm({ email, setEmail, password, setPassword, handleSubmit, error
 
         {error && <p className="login-error">* {error}</p>}
 
-        {/* Buttons */}
+        {/* Login Button */}
         <button
           type="submit"
           className="btn-login bg-[#81020b]"
         >
           Login
         </button>
-
-        <button
-          type="button"
-          className="btn-google"
-        >
-          <img src={googleLogo} alt="Google" className="google-icon" />
-          Continue with Google
-        </button>
       </form>
 
       <p className="footer-text">
         Don’t have an account?{" "}
-        <span
-          onClick={switchMode}
-        >
+        <span onClick={switchMode}>
           Sign up
         </span>
       </p>

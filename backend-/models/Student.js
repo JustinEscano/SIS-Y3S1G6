@@ -81,11 +81,6 @@ studentSchema.methods.getCurrentGradeLevel = async function() {
   }
 };
 
-// Remove if schema.index({ lrn: 1 }) exists elsewhere to fix duplicate warning
-// studentSchema.index({ lrn: 1 });
-
-module.exports = mongoose.model('Student', studentSchema);
-
 // Ensure virtuals are included in JSON
 studentSchema.set('toJSON', { virtuals: true });
 studentSchema.set('toObject', { virtuals: true });

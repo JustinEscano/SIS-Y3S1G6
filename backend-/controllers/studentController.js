@@ -138,28 +138,80 @@ const updateStudentProfile = asyncHandler(async (req, res) => {
 
 // Update student (admin/teacher updating any student)
 const updateStudent = asyncHandler(async (req, res) => {
-  const updates = { ...req.body }; // Copy body to avoid modifying original
   const studentId = req.params.id;
-
-  // **Important:** Do NOT allow direct update of currentGradeLevel via this route.
-  // It should always be dynamic or handled by specific promotion logic.
-  delete updates.currentGradeLevel;
-  // Note: Add validation (e.g., Joi) to prevent role changes; no password handling here
-
-  const student = await Student.findByIdAndUpdate(
-    studentId,
-    updates, // Use the modified updates object
-    { new: true, runValidators: true }
-  ).select('-password');
+  const student = await Student.findById(studentId);
 
   if (!student) {
     return res.status(404).json({ message: 'Student not found' });
   }
 
-  // After updating, recalculate the dynamic grade level to return the most current view
-  const currentGradeLevel = await student.getCurrentGradeLevel();
-  const studentData = student.toObject(); // Convert to plain object
-  studentData.currentGradeLevel = currentGradeLevel; // Add dynamic grade level
+  const {
+    name,
+    email,
+    section,
+    parentName,
+    lrn,
+    newPassword
+  } = req.body || {};
+
+  if (name !== undefined) {
+    const trimmedName = String(name).trim();
+    if (!trimmedName) {
+      return res.status(400).json({ message: 'Name cannot be empty.' });
+    }
+    student.name = trimmedName;
+  }
+
+  if (email !== undefined) {
+    const trimmedEmail = String(email).trim().toLowerCase();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(trimmedEmail)) {
+      return res.status(400).json({ message: 'Please provide a valid email address.' });
+    }
+
+    const existingStudentWithEmail = await Student.findOne({ email: trimmedEmail, _id: { $ne: studentId } });
+    if (existingStudentWithEmail) {
+      return res.status(409).json({ message: 'That email is already in use by another student.' });
+    }
+
+    student.email = trimmedEmail;
+  }
+
+  if (section !== undefined) {
+    student.section = section === null ? null : String(section).trim();
+  }
+
+  if (parentName !== undefined) {
+    student.parentName = parentName === null ? null : String(parentName).trim();
+  }
+
+  if (lrn !== undefined) {
+    const trimmedLrn = String(lrn).trim();
+    if (trimmedLrn) {
+      const existingStudentWithLrn = await Student.findOne({ lrn: trimmedLrn, _id: { $ne: studentId } });
+      if (existingStudentWithLrn) {
+        return res.status(409).json({ message: 'That LRN is already assigned to another student.' });
+      }
+      student.lrn = trimmedLrn;
+    } else {
+      student.lrn = undefined;
+    }
+  }
+
+  if (newPassword !== undefined && newPassword !== null) {
+    const trimmedPassword = String(newPassword).trim();
+    if (trimmedPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters long.' });
+    }
+    student.password = trimmedPassword;
+    student.markModified('password');
+  }
+
+  await student.save();
+
+  const studentData = student.toObject();
+  delete studentData.password;
+  studentData.currentGradeLevel = await student.getCurrentGradeLevel();
 
   res.status(200).json({ success: true, student: studentData });
 });

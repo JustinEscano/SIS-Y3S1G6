@@ -1,54 +1,73 @@
-import React, { useMemo, useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCog, faKey, faSave, faUserGraduate, faChalkboardTeacher, faUserShield } from "@fortawesome/free-solid-svg-icons";
+import { faCog, faEnvelope, faHistory } from "@fortawesome/free-solid-svg-icons";
+import AppService from "../../../appService";
+import Pagination from "../../../components/Pagination";
 
 function SystemSettings() {
-  const [settings, setSettings] = useState({
-    studentInviteCode: "STUDENT123",
-    teacherInviteCode: "TEACHER123",
-    superadminInviteCode: "SUPERADMIN123",
+  const [invites, setInvites] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [newInvite, setNewInvite] = useState({
+    email: "",
+    role: "student"
   });
+  const [error, setError] = useState(null);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
-  const handleChange = (e) => {
-    setSettings({ ...settings, [e.target.name]: e.target.value });
-  };
+  const fetchInvites = useCallback(async (pageToLoad) => {
+    setIsFetching(true);
+    setError(null);
 
-  const summaryCards = useMemo(() => (
-    [
-      {
-        label: "Student invite code",
-        value: settings.studentInviteCode,
-        helper: "Share with learners joining the SIS",
-        icon: faUserGraduate,
-        accent: "bg-blue-100 text-blue-600",
-      },
-      {
-        label: "Teacher invite code",
-        value: settings.teacherInviteCode,
-        helper: "Provide to incoming instructors",
-        icon: faChalkboardTeacher,
-        accent: "bg-emerald-100 text-emerald-600",
-      },
-      {
-        label: "Superadmin invite code",
-        value: settings.superadminInviteCode,
-        helper: "Limit to trusted platform owners",
-        icon: faUserShield,
-        accent: "bg-purple-100 text-purple-600",
-      },
-      {
-        label: "Security status",
-        value: "Manual entry",
-        helper: "Auto-sync coming soon",
-        icon: faKey,
-        accent: "bg-amber-100 text-amber-600",
-      },
-    ]
-  ), [settings]);
+    try {
+      const response = await AppService.get("/admin/invites", {
+        params: { page: pageToLoad }
+      });
 
-  const handleSave = () => {
-    // TODO: Implement save functionality
-    alert("Settings saved! (Backend integration needed)");
+      const { invites: inviteList = [], totalPages: total = 1, currentPage: activePage } = response.data || {};
+
+      setInvites(inviteList);
+      setTotalPages(total || 1);
+      if (activePage) {
+        setCurrentPage(Number(activePage));
+      }
+    } catch (err) {
+      const message = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to load invites";
+      setError(message);
+    } finally {
+      setIsFetching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInvites(currentPage);
+  }, [currentPage, fetchInvites]);
+
+  const handleSendInvite = async () => {
+    try {
+      setIsSending(true);
+      setError(null);
+
+      const payload = {
+        email: newInvite.email.trim(),
+        role: newInvite.role
+      };
+
+      await AppService.post("/admin/invites", payload);
+
+      await fetchInvites(currentPage);
+
+      setNewInvite({ email: "", role: "student" });
+
+      alert(`Invite sent successfully to ${payload.email}`);
+    } catch (err) {
+      const message = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to send invite";
+      setError(message);
+      alert(`Error sending invite: ${message}`);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -81,66 +100,122 @@ function SystemSettings() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summaryCards.map((card) => (
-          <div key={card.label} className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm">
-            <span className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold ${card.accent}`}>
-              <FontAwesomeIcon icon={card.icon} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{card.label}</p>
-              <p className="text-2xl font-semibold text-gray-900">{card.value}</p>
-              <p className="text-xs text-gray-500">{card.helper}</p>
-            </div>
+      {error && (
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <section className="rounded-3xl border border-gray-200 bg-white/95 p-6 shadow-xl ring-1 ring-black/5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Send New Invite</h2>
+            <p className="text-sm text-gray-500">Generate and email one-time invite codes</p>
           </div>
-        ))}
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <label className="space-y-2 text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Email</span>
+            <input
+              type="email"
+              value={newInvite.email}
+              onChange={(e) => setNewInvite({...newInvite, email: e.target.value})}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
+              placeholder="recipient@example.com"
+            />
+          </label>
+          
+          <label className="space-y-2 text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Role</span>
+            <select
+              value={newInvite.role}
+              onChange={(e) => setNewInvite({...newInvite, role: e.target.value})}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
+            >
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          
+          <div className="flex items-end">
+            <button
+              onClick={handleSendInvite}
+              disabled={isSending || !newInvite.email}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#81020b] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6a0109] disabled:opacity-50"
+            >
+              <FontAwesomeIcon icon={faEnvelope} />
+              {isSending ? 'Sending...' : 'Send Invite'}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-3xl border border-gray-200 bg-white/95 p-6 shadow-xl ring-1 ring-black/5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Invite code management</h2>
-            <p className="text-sm text-gray-500">Rotate codes periodically to maintain secure onboarding.</p>
+            <h2 className="text-xl font-semibold text-gray-900">Invite History</h2>
+            <p className="text-sm text-gray-500">Track all sent invite codes and their status</p>
           </div>
-          <button
-            onClick={handleSave}
-            className="inline-flex items-center gap-2 rounded-full bg-[#81020b] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#6a0109]"
-          >
-            <FontAwesomeIcon icon={faSave} /> Save changes
-          </button>
+          <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-600">
+            <FontAwesomeIcon icon={faHistory} /> {invites.length} records
+          </span>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <label className="space-y-2 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Student invite code</span>
-            <input
-              type="text"
-              name="studentInviteCode"
-              value={settings.studentInviteCode}
-              onChange={handleChange}
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Teacher invite code</span>
-            <input
-              type="text"
-              name="teacherInviteCode"
-              value={settings.teacherInviteCode}
-              onChange={handleChange}
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Superadmin invite code</span>
-            <input
-              type="text"
-              name="superadminInviteCode"
-              value={settings.superadminInviteCode}
-              onChange={handleChange}
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
-            />
-          </label>
+        <div className="mt-6 overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Code</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Expires</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Created By</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {isFetching ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-8 text-center text-sm text-gray-500">
+                    Loading invites...
+                  </td>
+                </tr>
+              ) : invites.length ? (
+                invites.map((invite) => (
+                  <tr key={invite._id}>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{invite.code}</td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{invite.email}</td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${invite.used ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {invite.used ? 'Used' : 'Active'}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                      {invite.expiresAt ? new Date(invite.expiresAt).toLocaleDateString() : '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                      {invite.createdBy?.name || 'System'}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="px-6 py-8 text-center text-sm text-gray-500">
+                    No invites found yet. Send a new invite to populate history.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4">
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </section>
 

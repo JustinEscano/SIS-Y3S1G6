@@ -9,6 +9,7 @@ import {
   faUserShield,
   faUsers,
   faPlus,
+  faPenToSquare,
 } from "@fortawesome/free-solid-svg-icons";
 import AppService from "../../../appService";
 import Pagination from "../../../components/Pagination";
@@ -65,6 +66,13 @@ function UserManagement() {
   const [createLoading, setCreateLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const [editModal, setEditModal] = useState({ open: false, user: null });
+  const [editForm, setEditForm] = useState({ name: "", email: "", department: "", section: "", parentName: "", lrn: "", newPassword: "" });
+  const [editError, setEditError] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  const editingRole = (editModal.user?.role || "").toLowerCase();
+  const isEditingStudent = editingRole === "student";
 
   useEffect(() => {
     fetchUsers();
@@ -112,6 +120,116 @@ function UserManagement() {
       setAlert({ type: 'error', message: error.response?.data?.message || 'Failed to fetch users.' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openEditModal = (user) => {
+    if (!user) {
+      setAlert({ type: "error", message: "Unable to load user details for editing." });
+      return;
+    }
+
+    setEditModal({ open: true, user });
+    setEditError("");
+    setEditSaving(false);
+    setEditForm({
+      name: user.name || "",
+      email: user.email || "",
+      department: user.department || "",
+      section: user.section || "",
+      parentName: user.parentName || "",
+      lrn: user.lrn || "",
+      newPassword: "",
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditModal({ open: false, user: null });
+    setEditForm({ name: "", email: "", department: "", section: "", parentName: "", lrn: "", newPassword: "" });
+    setEditError("");
+    setEditSaving(false);
+  };
+
+  const handleEditChange = (event) => {
+    const { name, value } = event.target;
+    if (editError) setEditError("");
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditSubmit = async (event) => {
+    event.preventDefault();
+    if (!editModal.user) return;
+
+    const isStudent = (editModal.user.role || "").toLowerCase() === "student";
+    const trimmedName = editForm.name.trim();
+    const trimmedEmail = editForm.email.trim();
+
+    if (!trimmedName || !trimmedEmail) {
+      setEditError("Please provide both name and email.");
+      return;
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(trimmedEmail)) {
+      setEditError("Enter a valid email address (e.g., name@example.com).");
+      return;
+    }
+
+    const trimmedPassword = (editForm.newPassword || "").trim();
+    if (trimmedPassword && trimmedPassword.length < 6) {
+      setEditError("New password should be at least 6 characters long.");
+      return;
+    }
+
+    const payload = {
+      name: trimmedName,
+      email: trimmedEmail.toLowerCase(),
+    };
+
+    if (trimmedPassword) {
+      payload.newPassword = trimmedPassword;
+    }
+
+    try {
+      setEditSaving(true);
+      setEditError("");
+
+      if (isStudent) {
+        const normalizeNullable = (value) => {
+          if (value === undefined || value === null) return null;
+          const trimmedValue = String(value).trim();
+          return trimmedValue ? trimmedValue : null;
+        };
+
+        payload.section = normalizeNullable(editForm.section);
+        payload.parentName = normalizeNullable(editForm.parentName);
+        payload.lrn = normalizeNullable(editForm.lrn);
+
+        await AppService.put(`/students/${editModal.user._id}`, payload);
+        const successMessage = trimmedPassword
+          ? "Student password updated successfully."
+          : "Student details updated successfully.";
+        setAlert({ type: "success", message: successMessage });
+      } else {
+        const trimmedDepartment = (editForm.department ?? "").trim();
+        payload.department = trimmedDepartment ? trimmedDepartment : null;
+
+        await AppService.put(`/admin/users/${editModal.user._id}`, payload);
+        const successMessage = trimmedPassword
+          ? "Staff password updated successfully."
+          : "User details updated successfully.";
+        setAlert({ type: "success", message: successMessage });
+      }
+
+      closeEditModal();
+      await fetchUsers();
+    } catch (error) {
+      console.error("Error updating user:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to update user.";
+      setEditError(errorMessage);
+      setAlert({ type: "error", message: errorMessage });
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -390,6 +508,13 @@ function UserManagement() {
                     </div>
                     <div className="flex items-center gap-3">
                       <button
+                        onClick={() => openEditModal(user)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-amber-500 shadow-inner transition hover:bg-amber-500 hover:text-white"
+                        title="Edit user"
+                      >
+                        <FontAwesomeIcon icon={faPenToSquare} />
+                      </button>
+                      <button
                         onClick={() => openViewModal(user)}
                         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#81020b] shadow-inner transition hover:bg-[#81020b] hover:text-white"
                         title="View user details"
@@ -600,6 +725,149 @@ function UserManagement() {
                 >
                   <FontAwesomeIcon icon={faPlus} />
                   {createLoading ? "Creating..." : "Create user"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+            <div className="relative border-b border-gray-200 bg-white px-6 py-5">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#81020b] via-[#b0121c] to-[#81020b]" />
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#81020b]/10 px-3 py-1 text-xs font-semibold text-[#81020b]">
+                    <FontAwesomeIcon icon={faPenToSquare} />
+                    <span className="uppercase tracking-wide">Edit user</span>
+                  </div>
+                  <h2 className="text-2xl font-semibold leading-tight text-gray-900">
+                    {isEditingStudent ? "Update student account" : "Update staff account"}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {isEditingStudent
+                      ? "Update student profile fields or reset their password from a single view."
+                      : "Adjust staff information and rotate credentials without re-inviting."}
+                  </p>
+                </div>
+                <button
+                  onClick={closeEditModal}
+                  className="rounded-full border border-gray-200 bg-white px-2 py-1 text-lg text-gray-500 transition hover:border-[#81020b] hover:text-[#81020b]"
+                  aria-label="Close"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="px-6 py-6 space-y-4">
+              {editError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-600">
+                  {editError}
+                </div>
+              )}
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-1 text-sm">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Full name</span>
+                  <input
+                    type="text"
+                    name="name"
+                    value={editForm.name}
+                    onChange={handleEditChange}
+                    className={`w-full rounded-xl border px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20 ${editError && !editForm.name.trim() ? "border-red-300 bg-red-50/40" : "border-gray-200"}`}
+                    placeholder="e.g. Alex Cruz"
+                  />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Email address</span>
+                  <input
+                    type="email"
+                    name="email"
+                    value={editForm.email}
+                    onChange={handleEditChange}
+                    className={`w-full rounded-xl border px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20 ${editError && editForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim()) ? "border-red-300 bg-red-50/40" : "border-gray-200"}`}
+                    placeholder="name@example.com"
+                  />
+                </label>
+                {isEditingStudent ? (
+                  <>
+                    <label className="space-y-1 text-sm">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Section</span>
+                      <input
+                        type="text"
+                        name="section"
+                        value={editForm.section}
+                        onChange={handleEditChange}
+                        className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
+                        placeholder="e.g. 10 - Rizal"
+                      />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Parent / Guardian</span>
+                      <input
+                        type="text"
+                        name="parentName"
+                        value={editForm.parentName}
+                        onChange={handleEditChange}
+                        className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
+                        placeholder="e.g. Maria Santos"
+                      />
+                    </label>
+                    <label className="md:col-span-2 space-y-1 text-sm">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">LRN</span>
+                      <input
+                        type="text"
+                        name="lrn"
+                        value={editForm.lrn}
+                        onChange={handleEditChange}
+                        className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
+                        placeholder="Enter LRN or leave blank"
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <label className="md:col-span-2 space-y-1 text-sm">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Department (optional)</span>
+                    <input
+                      type="text"
+                      name="department"
+                      value={editForm.department}
+                      onChange={handleEditChange}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
+                      placeholder="e.g. Mathematics"
+                    />
+                  </label>
+                )}
+                <label className="md:col-span-2 space-y-1 text-sm">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">New password (optional)</span>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    value={editForm.newPassword}
+                    onChange={handleEditChange}
+                    autoComplete="new-password"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:border-[#81020b] focus:outline-none focus:ring-2 focus:ring-[#81020b]/20"
+                    placeholder="Leave blank to keep current password"
+                  />
+                </label>
+              </div>
+              <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSaving}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#81020b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#6a0109] disabled:cursor-not-allowed disabled:bg-[#b23a43]"
+                >
+                  <FontAwesomeIcon icon={faPenToSquare} />
+                  {editSaving ? "Saving..." : "Save changes"}
                 </button>
               </div>
             </form>

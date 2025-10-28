@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faSpinner, faExclamationTriangle, faCalendarDay, faChevronDown, faChevronRight, faTimes } from '@fortawesome/free-solid-svg-icons'; // Added faTimes
+import { faArrowLeft, faSpinner, faExclamationTriangle, faCalendarDay, faChevronDown, faChevronRight, faTimes, faCheckCircle, faCircleXmark, faClock, faChartPie } from '@fortawesome/free-solid-svg-icons'; // Added icons
 import { useAuth } from '../../../context/authContext';
 // Assuming studentService is correctly imported if needed, otherwise use attendanceService.getStudent
 import studentService from '../../../services/studentService';
@@ -55,7 +55,7 @@ const StudentAttendanceHistory = () => {
                     subjectService.getSubject(subjectId, token) // Fetch subject details
                 ]);
 
-                 const studentData = studentRes.data?.student || studentRes.data || studentRes || null;
+                 const studentData = studentRes?.student || studentRes?.data?.student || studentRes?.data || studentRes || null;
                  setStudentInfo(studentData);
 
                  // Extract subject data
@@ -133,83 +133,153 @@ const StudentAttendanceHistory = () => {
     if (error) { return ( <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md border border-red-200"> <div className="flex items-center mb-4"> <FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-red-500 mr-2"/> <h2 className="text-xl font-semibold text-gray-800">Error</h2> </div> <p className="text-gray-600 mb-6">{error}</p> <button onClick={() => navigate(`/teacher/subjects/${subjectId}`)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"> Back </button> </div> ); }
 
     return (
-        <div className="p-4 md:p-6 w-full max-w-none min-h-screen bg-gray-50">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-                    {studentInfo?.name || 'Student'} - Attendance History
-                </h1>
-                <button onClick={() => navigate(`/teacher/subjects/${subjectId}`)} className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition self-start text-sm" > <FontAwesomeIcon icon={faArrowLeft} /> Back </button>
-            </div>
+        <div className="space-y-8 px-4 pb-16 pt-10 sm:px-8 min-h-screen bg-gray-50">
+            {/* Hero */}
+            <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#410b13] via-[#8d1322] to-[#f25c74] text-white shadow-2xl">
+                <div className="relative z-10 space-y-8 p-6 md:p-8">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="space-y-4 max-w-2xl">
+                            <button
+                                onClick={() => navigate(`/teacher/subjects/${subjectId}`)}
+                                className="inline-flex w-fit items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white hover:bg-white/25 transition"
+                            >
+                                <FontAwesomeIcon icon={faArrowLeft} className="text-[0.7rem]" />
+                                Back to subject
+                            </button>
+                            <div className="space-y-2">
+                                <h1 className="text-3xl font-bold md:text-4xl text-white">{studentInfo?.name || 'Student'} Attendance History</h1>
+                                <p className="text-sm text-white/90 max-w-xl">
+                                    Track daily presence, absences, and tardiness across the term. Expand a month or week to explore detailed records.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
 
-            {/* Student/Subject Info */}
-            <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200 shadow-sm text-sm">
-                 <p className="text-gray-700"><span className="font-medium">Student Email:</span> {studentInfo?.email || 'N/A'}</p>
-                 <p className="text-gray-500"><span className="font-medium">Subject:</span> {subjectInfo?.name || 'Loading...'} (Grade {subjectInfo?.gradeLevel || 'N/A'})</p>
-            </div>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="rounded-2xl bg-white/18 p-5 backdrop-blur-md shadow-xl shadow-black/10 ring-1 ring-white/25">
+                            <p className="text-xs uppercase tracking-wider text-white">Student contact</p>
+                            <p className="mt-3 text-lg font-semibold text-white break-all">
+                                {studentInfo?.email?.trim() || studentInfo?.guardianEmail?.trim() || studentInfo?.user?.email?.trim() || studentInfo?.name || 'Not provided'}
+                            </p>
+                        </div>
+                        <div className="rounded-2xl bg-white/18 p-5 backdrop-blur-md shadow-xl shadow-black/10 ring-1 ring-white/25">
+                            <p className="text-xs uppercase tracking-wider text-white">Subject</p>
+                            <p className="mt-3 text-lg font-semibold text-white">
+                                {subjectInfo?.name || 'Loading...'}
+                            </p>
+                            <p className="mt-1 text-sm text-white/80">Grade {subjectInfo?.gradeLevel || 'N/A'}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/18 p-5 backdrop-blur-md shadow-xl shadow-black/10 ring-1 ring-white/25">
+                            <p className="text-xs uppercase tracking-wider text-white">Sessions logged</p>
+                            <p className="mt-3 text-3xl font-semibold text-white" style={{ textShadow: '0 8px 18px rgba(0,0,0,0.35)' }}>{total}</p>
+                            <p className="mt-1 text-xs text-white/80">Individual attendance events</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/18 p-5 backdrop-blur-md shadow-xl shadow-black/10 ring-1 ring-white/25">
+                            <p className="text-xs uppercase tracking-wider text-white">Overall presence</p>
+                            <p className="mt-3 text-3xl font-semibold text-white" style={{ textShadow: '0 8px 18px rgba(0,0,0,0.35)' }}>{overall}%</p>
+                            <p className="mt-1 text-xs text-white/80">Present across recorded sessions</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-            {/* Totals Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-                 <div className="p-4 rounded-lg border text-center bg-green-50 border-green-200"> <h3 className="text-2xl font-bold text-green-600">{present}</h3> <p className="text-sm font-medium text-green-700">Present</p> </div>
-                 <div className="p-4 rounded-lg border text-center bg-red-50 border-red-200"> <h3 className="text-2xl font-bold text-red-600">{absent}</h3> <p className="text-sm font-medium text-red-700">Absent</p> </div>
-                 <div className="p-4 rounded-lg border text-center bg-yellow-50 border-yellow-200"> <h3 className="text-2xl font-bold text-yellow-600">{tardy}</h3> <p className="text-sm font-medium text-yellow-700">Tardy</p> </div>
-                 <div className="p-4 rounded-lg border text-center bg-blue-50 border-blue-200"> <h3 className="text-2xl font-bold text-blue-600">{overall}%</h3> <p className="text-sm font-medium text-blue-700">Overall Rate</p> <p className="text-xs text-blue-500">({total} sessions)</p> </div>
+            {/* Summary Cards */}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-green-100 bg-white p-5 shadow-sm">
+                    <FontAwesomeIcon icon={faCheckCircle} className="text-emerald-500 text-xl" />
+                    <p className="text-xs uppercase tracking-wider text-green-600">Present</p>
+                    <p className="mt-2 text-3xl font-semibold text-green-700">{present}</p>
+                    <p className="text-xs text-green-500 mt-1">Marked as present</p>
+                </div>
+                <div className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
+                    <FontAwesomeIcon icon={faCircleXmark} className="text-red-500 text-xl" />
+                    <p className="text-xs uppercase tracking-wider text-red-600">Absent</p>
+                    <p className="mt-2 text-3xl font-semibold text-red-700">{absent}</p>
+                    <p className="text-xs text-red-500 mt-1">Days missed</p>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-white p-5 shadow-sm">
+                    <FontAwesomeIcon icon={faClock} className="text-amber-500 text-xl" />
+                    <p className="text-xs uppercase tracking-wider text-amber-600">Tardy</p>
+                    <p className="mt-2 text-3xl font-semibold text-amber-700">{tardy}</p>
+                    <p className="text-xs text-amber-500 mt-1">Late arrivals recorded</p>
+                </div>
+                <div className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
+                    <FontAwesomeIcon icon={faChartPie} className="text-sky-500 text-xl" />
+                    <p className="text-xs uppercase tracking-wider text-blue-600">Overall rate</p>
+                    <p className="mt-2 text-3xl font-semibold text-blue-700">{overall}%</p>
+                    <p className="text-xs text-blue-500 mt-1">Across {total} sessions</p>
+                </div>
             </div>
 
             {/* No Records Message */}
-            {total === 0 && ( <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-dashed border-gray-300 mb-6"> <p className="text-lg">No attendance records found.</p> </div> )}
+            {total === 0 && (
+                <div className="text-center py-12 text-gray-500 bg-white rounded-3xl border border-dashed border-gray-300">
+                    <p className="text-lg">No attendance records found.</p>
+                    <p className="mt-2 text-sm">Records will appear here once attendance is logged for this student.</p>
+                </div>
+            )}
 
             {/* Monthly Accordions */}
             {total > 0 && (
-                <div className="space-y-4">
-                    {groupedRecords.map((group) => (
-                        <div key={group.month} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-200">
+                    {groupedRecords.map((group, monthIndex) => (
+                        <div key={group.month} className={monthIndex > 0 ? 'border-t border-gray-100' : ''}>
                             {/* Month Header */}
-                            <div className="p-3 md:p-4 cursor-pointer hover:bg-gray-50 transition flex justify-between items-center border-b border-gray-100" onClick={() => toggleMonth(group.month)} >
-                                <h3 className="text-md md:text-lg font-semibold text-gray-700">{group.monthName}</h3>
-                                <div className="text-right text-xs text-gray-600 flex items-center gap-2">
-                                    <p>Present: {group.presentCount} / {group.totalCount}</p>
-                                    <FontAwesomeIcon icon={expandedMonths.has(group.month) ? faChevronDown : faChevronRight} className="text-sm transition-transform duration-200" />
+                            <button
+                                type="button"
+                                onClick={() => toggleMonth(group.month)}
+                                className="w-full px-4 py-4 flex justify-between items-center text-left hover:bg-gray-50 transition"
+                            >
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-800">{group.monthName}</h3>
+                                    <p className="text-xs text-gray-500 mt-1">Present {group.presentCount} of {group.totalCount} recorded days</p>
                                 </div>
-                            </div>
-                            {/* Month Content (Weeks) */}
-                            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${expandedMonths.has(group.month) ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`} >
-                                <div className="p-2 md:p-4 space-y-2 bg-gray-50/50">
-                                    {group.weeks.map((week) => (
-                                        <div key={week.weekKey} className="bg-white rounded border border-gray-200 overflow-hidden">
-                                            {/* Week Header */}
-                                            <div className="p-2 md:p-3 cursor-pointer hover:bg-gray-100 transition flex justify-between items-center" onClick={() => toggleWeek(group.month, week.weekKey)} >
-                                                <h4 className="text-sm font-semibold text-gray-600">Week {week.weekNum}</h4>
-                                                <div className="text-right text-xs text-gray-500 flex items-center gap-2">
-                                                    <p>Present: {week.presentCount} / {week.totalCount}</p>
-                                                    <FontAwesomeIcon icon={expandedWeeks[group.month]?.has(week.weekKey) ? faChevronDown : faChevronRight} className="text-xs transition-transform duration-200" />
-                                                </div>
-                                            </div>
-                                            {/* Week Content (Days) */}
-                                            <div className={`transition-all duration-300 ease-in-out border-t border-gray-100 ${expandedWeeks[group.month]?.has(week.weekKey) ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`} >
-                                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 p-3">
-                                                    {week.records.map((record) => {
-                                                        const date = new Date(record.date);
-                                                        const dayLabel = date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
-                                                        let statusClass = 'bg-gray-100 text-gray-700 border-gray-300';
-                                                        if (record.status === 'Present') statusClass = 'bg-green-100 text-green-800 border-green-300';
-                                                        if (record.status === 'Absent') statusClass = 'bg-red-100 text-red-800 border-red-300';
-                                                        if (record.status === 'Tardy') statusClass = 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                                <span className="h-8 w-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600">
+                                    <FontAwesomeIcon icon={expandedMonths.has(group.month) ? faChevronDown : faChevronRight} />
+                                </span>
+                            </button>
 
-                                                        return (
-                                                            <div
-                                                                key={record._id || record.date}
-                                                                className={`flex flex-col items-center p-2 rounded border shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.02] transition transform duration-150 ${statusClass}`}
-                                                                onClick={(e) => { e.stopPropagation(); setSelectedDate(date); }}
-                                                                title={`Click for details: ${dayLabel}`}
-                                                            >
-                                                                <FontAwesomeIcon icon={faCalendarDay} className="mb-1 text-xs opacity-60"/>
-                                                                <span className="text-xs font-medium text-center mb-0.5">{dayLabel}</span>
-                                                                <span className="text-[10px] font-semibold uppercase tracking-wide">{record.status}</span>
-                                                            </div>
-                                                        );
-                                                    })}
+                            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedMonths.has(group.month) ? 'max-h-[2000px]' : 'max-h-0'}`}>
+                                <div className="px-4 pb-4 space-y-3 bg-gray-50/60">
+                                    {group.weeks.map((week) => (
+                                        <div key={week.weekKey} className="rounded-2xl border border-gray-200 bg-white shadow-xs overflow-hidden">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleWeek(group.month, week.weekKey)}
+                                                className="w-full flex justify-between items-center px-4 py-3 text-left hover:bg-gray-50 transition"
+                                            >
+                                                <div>
+                                                    <h4 className="text-sm font-semibold text-gray-700">Week {week.weekNum}</h4>
+                                                    <p className="text-xs text-gray-500 mt-1">{week.presentCount} present / {week.totalCount} sessions</p>
                                                 </div>
+                                                <span className="h-7 w-7 flex items-center justify-center rounded-full bg-gray-100 text-gray-600">
+                                                    <FontAwesomeIcon icon={expandedWeeks[group.month]?.has(week.weekKey) ? faChevronDown : faChevronRight} />
+                                                </span>
+                                            </button>
+
+                                            <div className={`grid gap-2 px-4 pb-4 transition-all duration-300 ease-in-out ${expandedWeeks[group.month]?.has(week.weekKey) ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 pt-3' : 'grid-cols-1 max-h-0 overflow-hidden'}`}>
+                                                {expandedWeeks[group.month]?.has(week.weekKey) && week.records.map((record) => {
+                                                    const date = new Date(record.date);
+                                                    const dayLabel = date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+                                                    let statusClass = 'bg-gray-100 text-gray-700 border-gray-300';
+                                                    if (record.status === 'Present') statusClass = 'bg-green-100 text-green-800 border-green-300';
+                                                    if (record.status === 'Absent') statusClass = 'bg-red-100 text-red-800 border-red-300';
+                                                    if (record.status === 'Tardy') statusClass = 'bg-yellow-100 text-yellow-800 border-yellow-300';
+
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={record._id || record.date}
+                                                            onClick={() => setSelectedDate(date)}
+                                                            className={`flex flex-col items-center rounded-xl border px-3 py-3 text-center shadow-sm transition hover:shadow-md hover:scale-[1.02] ${statusClass}`}
+                                                            title={`Click for details: ${dayLabel}`}
+                                                        >
+                                                            <FontAwesomeIcon icon={faCalendarDay} className="mb-1 text-xs opacity-70" />
+                                                            <span className="text-xs font-semibold">{dayLabel}</span>
+                                                            <span className="mt-1 text-[11px] font-semibold uppercase tracking-wide">{record.status}</span>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     ))}
@@ -225,11 +295,11 @@ const StudentAttendanceHistory = () => {
                 <>
                     {/* Backdrop */}
                     <div 
-                        className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+                        className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
                         onClick={clearSelectedDate}
                     />
                     {/* Modal */}
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                         <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
                             <div className="p-4 border-b border-gray-200">
                                 <div className="flex justify-between items-center mb-2">
