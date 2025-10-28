@@ -13,6 +13,8 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
     department: { type: String }, // optional (for teachers)
+    resetPasswordToken: { type: String, select: false },
+    resetPasswordExpires: { type: Date, select: false },
   },
   { timestamps: true }
 );

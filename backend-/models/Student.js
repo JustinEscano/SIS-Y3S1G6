@@ -8,6 +8,9 @@ const studentSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: { type: String, default: 'student' },
 
+    resetPasswordToken: { type: String, select: false },
+    resetPasswordExpires: { type: Date, select: false },
+
     // Core student-specific fields (no grade levels or progression—derive from enrolled subjects)
     section: { type: String },
     currentGradeLevel: { type: Number, min: 7, max: 12, default: null },

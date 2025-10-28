@@ -26,19 +26,9 @@ const parseAcademicYear = (academicYear) => {
 };
 
 const computeSubjectInsight = (subjectProgress) => {
-  const hasUsableScores = (entry) => {
-    if (!entry || typeof entry !== "object") return false;
-    if (typeof entry.finalGrade === "number" && !Number.isNaN(entry.finalGrade)) return true;
-    const quarters = entry.quarterTotals;
-    if (!quarters || typeof quarters !== "object") return false;
-    return ["q1", "q2", "q3", "q4"].some(
-      (key) => typeof quarters[key] === "number" && !Number.isNaN(quarters[key])
-    );
-  };
-
   const history = Array.isArray(subjectProgress.progress)
     ? subjectProgress.progress
-        .filter(hasUsableScores)
+        .filter((entry) => typeof entry?.finalGrade === "number")
         .sort((a, b) => parseAcademicYear(a.academicYear) - parseAcademicYear(b.academicYear))
     : [];
 
@@ -76,9 +66,9 @@ const computeSubjectInsight = (subjectProgress) => {
     ? currentAverage - previousAverage
     : 0;
 
-  // Predicted score: keep the current average as the baseline and apply 30% of the improvement delta
+  // Formula provided by stakeholder: Predicted = (0.6 × current average) + (0.3 × improvement trend)
   const weightedPrediction = currentAverage != null
-    ? currentAverage + 0.3 * improvementTrend
+    ? 0.6 * currentAverage + 0.3 * improvementTrend
     : null;
 
   return {
@@ -89,11 +79,6 @@ const computeSubjectInsight = (subjectProgress) => {
     improvementTrend: Number(improvementTrend.toFixed(1)),
     predictedGrade: clampGrade(weightedPrediction),
   };
-};
-
-const formatGrade = (grade, fallback = "—") => {
-  if (typeof grade !== "number" || Number.isNaN(grade)) return fallback;
-  return grade.toFixed(1);
 };
 
 const StudentDashboard = () => {
@@ -258,10 +243,10 @@ const StudentDashboard = () => {
 
     const currentGrades = subjectInsights
       .map((item) => item.currentAverage)
-      .filter((grade) => typeof grade === "number" && !Number.isNaN(grade));
+      .filter((grade) => typeof grade === "number");
     const predictedGrades = subjectInsights
       .map((item) => item.predictedGrade)
-      .filter((grade) => typeof grade === "number" && !Number.isNaN(grade));
+      .filter((grade) => typeof grade === "number");
     const improvements = subjectInsights.map((item) => item.improvementTrend || 0);
 
     const average = (values) => {
@@ -282,19 +267,15 @@ const StudentDashboard = () => {
     [
       {
         label: "Current average",
-        value: formatGrade(overallMetrics.currentAverage),
+        value: overallMetrics.currentAverage ?? "—",
         helper: "Across tracked subjects",
         icon: faChartLine,
         accent: "bg-sky-100 text-sky-600",
       },
       {
         label: "Predicted average",
-        value: formatGrade(overallMetrics.predictedAverage),
-        helper: overallMetrics.predictedAverage != null && overallMetrics.currentAverage != null
-          ? overallMetrics.predictedAverage >= overallMetrics.currentAverage
-            ? "Forecast trending upward"
-            : "Forecast trending lower"
-          : "Based on your latest data",
+        value: overallMetrics.predictedAverage ?? "—",
+        helper: "Using weighted forecast",
         icon: faBullseye,
         accent: "bg-amber-100 text-amber-600",
       },
@@ -307,7 +288,7 @@ const StudentDashboard = () => {
       },
       {
         label: "Avg. improvement",
-        value: `${overallMetrics.improvementTrend >= 0 ? "+" : ""}${formatGrade(overallMetrics.improvementTrend, "0.0")}`,
+        value: `${overallMetrics.improvementTrend >= 0 ? "+" : ""}${overallMetrics.improvementTrend.toFixed?.(1) ?? overallMetrics.improvementTrend}`,
         helper: "Year-over-year change",
         icon: faArrowTrendUp,
         accent: "bg-purple-100 text-purple-600",
@@ -325,24 +306,6 @@ const StudentDashboard = () => {
       },
     ]
   ), [overallMetrics, attendanceOverview]);
-
-  const momentumInsights = useMemo(() => {
-    if (!subjectInsights.length) {
-      return { improving: [], declining: [] };
-    }
-
-    const improving = subjectInsights
-      .filter((item) => item.improvementTrend > 0 && typeof item.predictedGrade === "number")
-      .sort((a, b) => b.improvementTrend - a.improvementTrend)
-      .slice(0, 3);
-
-    const declining = subjectInsights
-      .filter((item) => item.improvementTrend < 0 && typeof item.predictedGrade === "number")
-      .sort((a, b) => a.improvementTrend - b.improvementTrend)
-      .slice(0, 3);
-
-    return { improving, declining };
-  }, [subjectInsights]);
 
   const strugglingSubjects = useMemo(
     () => subjectInsights
@@ -384,19 +347,6 @@ const StudentDashboard = () => {
                 </p>
               </div>
             </div>
-            {overallMetrics.predictedAverage != null && overallMetrics.currentAverage != null && (
-              <div className="flex flex-col items-start gap-3 text-sm md:items-end">
-                <div className="rounded-2xl border border-white/25 bg-white/15 px-4 py-3 text-left shadow-sm">
-                  <p className="text-xs uppercase tracking-wide text-white/70">Forecast snapshot</p>
-                  <p className="mt-1 text-lg font-semibold text-white">
-                    {formatGrade(overallMetrics.predictedAverage)} expected · {overallMetrics.predictedAverage >= overallMetrics.currentAverage ? "On pace" : "Needs lift"}
-                  </p>
-                  <p className="text-[11px] text-white/65">
-                    Updated from your latest grades  stay consistent to keep this trend.
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
 
           {error && (
@@ -557,69 +507,30 @@ const StudentDashboard = () => {
 
       {subjectInsights.length > 0 && (
         <section className="rounded-3xl border border-gray-200 bg-white/95 p-6 shadow-xl ring-1 ring-black/5">
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Subjects to watch closely</h2>
-              <p className="text-sm text-gray-500">Predictions below 75 need extra attention. Plan a catch-up session soon.</p>
-
-              {strugglingSubjects.length === 0 ? (
-                <div className="mt-6 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 px-6 py-8 text-center text-sm text-emerald-700">
-                  No subjects are currently trending below 75. Great job—keep up the consistency!
-                </div>
-              ) : (
-                <div className="mt-6 space-y-3">
-                  {strugglingSubjects.map((subject) => (
-                    <div key={subject.subjectId || subject.subjectName} className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm">
-                      <div>
-                        <p className="font-semibold text-red-700">{subject.subjectName}</p>
-                        <p className="text-xs text-red-500">Predicted {formatGrade(subject.predictedGrade)} • Trend {subject.improvementTrend > 0 ? "+" : ""}{subject.improvementTrend}</p>
-                      </div>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-red-600">Focus area</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">Momentum insights</h2>
-              <p className="text-sm text-gray-500">Celebrate wins and keep an eye on dips to stay ahead of your goals.</p>
-
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-sm font-semibold text-emerald-700">Top gains</p>
-                  {momentumInsights.improving.length === 0 ? (
-                    <p className="mt-2 text-xs text-emerald-600">No strong upward trends yet—keep pushing!</p>
-                  ) : (
-                    <ul className="mt-3 space-y-2 text-xs text-emerald-700">
-                      {momentumInsights.improving.map((subject) => (
-                        <li key={`gain-${subject.subjectId || subject.subjectName}`} className="flex items-center justify-between">
-                          <span className="font-semibold">{subject.subjectName}</span>
-                          <span>+{formatGrade(subject.improvementTrend, "0.0")} trend</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-semibold text-amber-700">Slipping subjects</p>
-                  {momentumInsights.declining.length === 0 ? (
-                    <p className="mt-2 text-xs text-amber-600">No declines detected—stay consistent!</p>
-                  ) : (
-                    <ul className="mt-3 space-y-2 text-xs text-amber-700">
-                      {momentumInsights.declining.map((subject) => (
-                        <li key={`decline-${subject.subjectId || subject.subjectName}`} className="flex items-center justify-between">
-                          <span className="font-semibold">{subject.subjectName}</span>
-                          <span>{formatGrade(subject.predictedGrade)} projected</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
+              <p className="text-sm text-gray-500">These predictions fall below the 75 passing threshold. Plan extra study sessions or reach out for support.</p>
             </div>
           </div>
+
+          {strugglingSubjects.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 px-6 py-8 text-center text-sm text-emerald-700">
+              No subjects are currently trending below 75. Great job—keep up the consistency!
+            </div>
+          ) : (
+            <div className="mt-6 space-y-3">
+              {strugglingSubjects.map((subject) => (
+                <div key={subject.subjectId || subject.subjectName} className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm">
+                  <div>
+                    <p className="font-semibold text-red-700">{subject.subjectName}</p>
+                    <p className="text-xs text-red-500">Predicted {subject.predictedGrade} • Trend {subject.improvementTrend > 0 ? "+" : ""}{subject.improvementTrend}</p>
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-red-600">Focus area</span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
     </div>

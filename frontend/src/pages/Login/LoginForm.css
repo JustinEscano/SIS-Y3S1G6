@@ -1,160 +1,138 @@
-/* LoginForm.css (Hybrid Version) */
-/* Tailwind Directives */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* LoginForm.css */
 
-@layer components {
-  .login-card {
-    @apply w-full max-w-md bg-white/95 p-8 rounded-2xl shadow-xl flex flex-col text-left font-sans; /* Tailwind layout/shadow */
-    width: 100%;
-    max-width: 400px;
-    background-color: rgba(255, 255, 255, 0.98);
-    padding: 40px 30px;
-    border-radius: 16px;
-    box-shadow: 0px 10px 30px rgba(0,0,0,0.15);
-    display: flex;
-    flex-direction: column;
-    text-align: left;
-    font-family: var(--font-body);
-  }
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background-color: rgba(255, 255, 255, 0.98);
+  padding: 40px 30px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  font-family: var(--font-body, 'Inter', sans-serif);
+}
 
-  .login-title {
-    @apply text-2xl font-semibold text-gray-900 mb-1; /* Tailwind text */
-    font-size: 28px;
-    font-weight: 600;
-    color: #1F2937;
-    font-family: var(--font-title);
-  }
+.login-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+  font-family: var(--font-title, 'Inter', sans-serif);
+}
 
-  .login-subtitle {
-    @apply text-sm text-gray-500 mb-6; /* Tailwind text/spacing */
-    font-family: var(--font-subheading);
-    font-size: 14px;
-    margin-bottom: 24px;
-    color: #6B7280;
-  }
+.login-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 24px;
+  font-family: var(--font-subheading, 'Inter', sans-serif);
+}
 
-  .login-error {
-    @apply text-red-600 text-sm; /* Tailwind color/text */
-    color: #DC2626;
-    margin-bottom: 15px;
-    font-size: 14px;
-  }
+.login-error {
+  color: #dc2626;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
 
-  .login-form .input-group {
-    @apply flex flex-col mb-4; /* Tailwind flex/spacing */
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 16px;
-  }
+.login-form .input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
 
-  .login-form label {
-    @apply block text-sm font-semibold text-gray-800 mb-1; /* Tailwind text */
-    font-family: var(--font-subheading);
-    font-size: 14px;
-    font-weight: 700;
-    color: #2D2D2D;
-    margin-bottom: 6px;
-  }
+.login-form label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2d2d2d;
+  margin-bottom: 6px;
+  font-family: var(--font-subheading, 'Inter', sans-serif);
+}
 
-  .label-row {
-    @apply flex justify-between items-center mb-1; /* Tailwind flex */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
 
-  .label-row label {
-    @apply text-sm font-semibold text-gray-700; /* Tailwind text */
-    font-size: 14px;
-    font-weight: 600;
-    color: #374151;
-  }
+.label-row label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
 
-  .forgot-password {
-    @apply text-[#81020b] text-xs font-semibold hover:text-blue-700 no-underline cursor-pointer transition-colors; /* Tailwind text/transition */
-    font-family: var(--font-subheading);
-    font-size: 13px;
-    font-weight: 600;
-    color: #81020B;
-    text-decoration: none;
-    transition: color 0.3s ease;
-  }
+.forgot-password {
+  font-size: 13px;
+  font-weight: 600;
+  color: #81020b;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
 
-  .login-form input {
-    @apply w-full px-3.5 py-3 rounded-xl border text-base text-gray-900 outline-none; /* Tailwind sizing/border */
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid #81020B;
-    font-size: 16px;
-    color: #111827;
-    transition: border 0.2s ease;
-  }
+.forgot-password:hover {
+  color: #003b8b;
+}
 
-  .login-form input:focus {
-    @apply border-gray-400; /* Tailwind focus */
-    border-color: #c9c9c9;
-  }
+.forgot-password:disabled {
+  color: #bfbfbf;
+  cursor: not-allowed;
+}
 
-  .btn-login {
-    @apply bg-red-800;
-    @apply w-full py-3 bg-[#81020b] text-white font-medium rounded-xl border-none cursor-pointer mb-3 transition-colors; /* Tailwind button */
-    padding: 12px;
-    font-size: 16px;
-    font-weight: 500;
-    border-radius: 10px;
-    margin-bottom: 12px;
-    transition: background-color 0.3s ease;
-  }
+.login-form input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #81020b;
+  font-size: 16px;
+  color: #111827;
+  transition: border-color 0.2s ease;
+  outline: none;
+}
 
-  .btn-login:hover {
-    @apply bg-red-800; /* Tailwind hover */
-    background-color: #880000;
-  }
+.login-form input:focus {
+  border-color: #c9c9c9;
+}
 
-  .btn-google {
-    @apply w-full py-3 bg-white text-gray-800 font-medium rounded-xl border shadow-sm hover:bg-gray-50 transition flex items-center justify-center gap-2; /* Tailwind button/full */
-    padding: 12px;
-    margin-bottom: 20px;
-    color: #000;
-    border: 1px solid #ddd;
-    font-size: 16px;
-    font-weight: 500;
-    border-radius: 10px;
-    cursor: pointer;
-    box-shadow: 0px 2px 8px rgba(0,0,0,0.1);
-    transition: background-color 0.3s ease, box-shadow 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-  }
+.btn-login {
+  width: 100%;
+  padding: 12px;
+  background-color: #81020b;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: background-color 0.3s ease, opacity 0.3s ease;
+}
 
-  .btn-google:hover {
-    @apply shadow-md; /* Tailwind hover */
-    background-color: #f8f8f8;
-    box-shadow: 0px 2px 8px rgba(0,0,0,0.3);
-  }
+.btn-login:hover {
+  background-color: #960314;
+}
 
-  .google-icon {
-    @apply w-5 h-5; /* Tailwind icon */
-    width: 20px;
-    height: 20px;
-  }
+.btn-login:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
 
-  .footer-text {
-    @apply text-sm text-gray-500 text-center mt-6; /* Tailwind text */
-    font-size: 14px;
-    margin-top: 16px;
-    color: #6B7280;
-    font-weight: 500;
-    font-family: var(--font-body);
-  }
+.footer-text {
+  font-size: 14px;
+  margin-top: 16px;
+  color: #6b7280;
+  font-weight: 500;
+  text-align: center;
+  font-family: var(--font-body, 'Inter', sans-serif);
+}
 
-  .footer-text span {
-    @apply text-[#81020b] font-semibold cursor-pointer hover:underline; /* Tailwind text */
-    color: #81020B;
-    font-weight: 600;
-  }
+.footer-text span {
+  color: #81020b;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
 }

@@ -11,6 +11,7 @@ import {
   faRightFromBracket,
   faExclamationTriangle,
   faTimes,
+  faBell,
 } from "@fortawesome/free-solid-svg-icons";
 import '../styles/Sidebar.css'; // Ensure path is correct
 import authService from "../../../services/authService";

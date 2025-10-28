@@ -3,6 +3,8 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/authContext";
 import Login from "./pages/Login/Login";
+import ForgotPassword from "./pages/Password/ForgotPassword";
+import ResetPassword from "./pages/Password/ResetPassword";
 import TeacherRoutes from "./pages/Teacher/Route";
 import StudentRoutes from "./pages/Student/StudentRoutes";
 import SuperadminRoutes from "./pages/Superadmin/Route";
@@ -17,6 +19,8 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
 
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route
             path="/teacher/*"

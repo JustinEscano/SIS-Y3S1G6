@@ -2,7 +2,17 @@
 import React from "react";
 import "./LoginForm.css"; // Import hybrid CSS
 
-function LoginForm({ email, setEmail, password, setPassword, handleSubmit, error, switchMode }) {
+function LoginForm({
+  email,
+  setEmail,
+  password,
+  setPassword,
+  handleSubmit,
+  error,
+  isSubmitting = false,
+  onForgotPassword,
+  switchMode,
+}) {
   return (
     <div className="login-card">
       <h2 className="login-title">Let's get you back on track</h2>
@@ -25,9 +35,14 @@ function LoginForm({ email, setEmail, password, setPassword, handleSubmit, error
         <div className="input-group">
           <div className="label-row">
             <label>Password</label>
-            <a href="#" className="forgot-password">
+            <button
+              type="button"
+              className="forgot-password"
+              onClick={onForgotPassword}
+              disabled={isSubmitting}
+            >
               Forgot Password?
-            </a>
+            </button>
           </div>
           <input
             type="password"
@@ -44,8 +59,9 @@ function LoginForm({ email, setEmail, password, setPassword, handleSubmit, error
         <button
           type="submit"
           className="btn-login bg-[#81020b]"
+          disabled={isSubmitting}
         >
-          Login
+          {isSubmitting ? "Logging in..." : "Login"}
         </button>
       </form>
 

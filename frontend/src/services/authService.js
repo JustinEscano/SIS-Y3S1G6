@@ -71,10 +71,44 @@ const logout = () => {
   window.location.href = "/login";
 };
 
+const forgotPassword = async (email) => {
+  try {
+    if (!email || typeof email !== "string") {
+      throw new Error("A valid email is required");
+    }
+
+    const { data } = await AppService.post("/auth/forgot-password", { email });
+    return data;
+  } catch (error) {
+    const errMsg = error.response?.data?.message || error.message || "Password reset request failed";
+    console.error("Forgot password error:", { message: errMsg, status: error.response?.status });
+    throw new Error(errMsg);
+  }
+};
+
+const resetPassword = async ({ token, password }) => {
+  try {
+    if (!token) {
+      throw new Error("Reset token is required");
+    }
+    if (!password || typeof password !== "string" || password.length < 8) {
+      throw new Error("Password must be at least 8 characters");
+    }
+
+    const { data } = await AppService.post(`/auth/reset-password/${token}`, { password });
+    return data;
+  } catch (error) {
+    const errMsg = error.response?.data?.message || error.message || "Password reset failed";
+    console.error("Reset password error:", { message: errMsg, status: error.response?.status });
+    throw new Error(errMsg);
+  }
+};
+
 // 🔁 Refresh (refactored: Return full response, handle role sync)
 const refreshToken = async () => {
   try {
     const refreshTokenVal = localStorage.getItem("refreshToken");
+
     if (!refreshTokenVal) {
       throw new Error("No refresh token found");
     }
@@ -139,6 +173,8 @@ const authService = {
   logout,
   refreshToken,
   validateAndRefresh,
+  forgotPassword,
+  resetPassword,
   decodeToken, // Export for context use
 };
 

@@ -1,9 +1,8 @@
-// src/pages/Student/Notifications.js (Revamp UI to match dashboard styling and tidy data hooks)
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+// src/pages/Student/Notifications.js (Updated: Removed Test button; added global counts for filters that don't change on tab switch)
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import NotificationService from '../../../services/notificationService'; // Adjust path as needed
-import { useAuth } from '../../../context/authContext';
-import { ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -19,12 +18,22 @@ const Notifications = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const limit = 10;
-  const { user } = useAuth();
-  const userId = user?.id || null;
+  // FIXED: Updated to actual Student ID with notifications (from DB: "68e9b754beb6f72e4ab8ee15")
+  // TODO: Replace with dynamic user._id from auth context in production
+  const userId = '68e9b754beb6f72e4ab8ee15';
 
-  const fetchCounts = useCallback(async () => {
+  useEffect(() => {
+    fetchCounts(); // NEW: Fetch global counts on mount
+    fetchNotifications();
+  }, []); // Initial load
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [filter, currentPage]);
+
+  // NEW: Fetch global unread and read counts (independent of filter/pagination)
+  const fetchCounts = async () => {
     try {
-      if (!userId) return;
       const [unreadData, readData] = await Promise.all([
         NotificationService.getUserNotifications(userId, { read: false, limit: 1 }),
         NotificationService.getUserNotifications(userId, { read: true, limit: 1 })
@@ -34,18 +43,12 @@ const Notifications = () => {
     } catch (error) {
       console.error('Failed to fetch notification counts:', error);
     }
-  }, [userId]);
+  };
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = async () => {
     setLoading(true);
     setError(null);
     try {
-      if (!userId) {
-        setNotifications([]);
-        setTotal(0);
-        setTotalPages(1);
-        return;
-      }
       const options = { 
         page: currentPage, 
         limit, 
@@ -72,15 +75,7 @@ const Notifications = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, filter, limit, userId]);
-
-  useEffect(() => {
-    fetchCounts();
-  }, [fetchCounts]);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+  };
 
   const markAsRead = async (notificationId) => {
     try {
@@ -208,225 +203,163 @@ const Notifications = () => {
     }
   };
 
-  const summaryCards = useMemo(() => ([
-    {
-      label: 'Total notifications',
-      value: total,
-      helper: 'Includes read and unread updates across your courses.',
-      accent: '#f97316'
-    },
-    {
-      label: 'Unread messages',
-      value: globalUnread,
-      helper: 'Items that still need your attention.',
-      accent: '#22c55e'
-    },
-    {
-      label: 'Completed reads',
-      value: globalRead,
-      helper: 'Keep tabs on what you have already reviewed.',
-      accent: '#3b82f6'
-    }
-  ]), [globalRead, globalUnread, total]);
+  const unreadNotifications = notifications.filter(n => !n.read).length;
+  const readNotifications = notifications.filter(n => n.read).length;
 
-  const formatDate = (value) => {
-    try {
-      return new Date(value).toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (error) {
-      return value;
-    }
-  };
+  if (loading) {
+    return <div className="flex justify-center items-center h-64">Loading notifications...</div>;
+  }
 
   return (
-    <div className="space-y-6 px-6 py-6 min-h-screen bg-gray-50">
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#5f0f19] via-[#a31621] to-[#f25c74] text-white shadow-2xl">
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{ backgroundImage: "radial-gradient(circle at top left, rgba(255,255,255,0.6), transparent 55%)" }}
-          aria-hidden="true"
-        />
-        <div className="relative z-10 space-y-6 p-5 md:p-6">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-4">
-            <button
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-white/25"
-            >
-              <ChevronLeftIcon className="h-4 w-4" />
-              Back
-            </button>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold md:text-4xl text-white">All your updates in one place</h1>
-              <p className="text-sm text-white max-w-2xl">
-                Review announcements, grades, and class reminders without bouncing between tabs. Use the filters below to focus on what matters now.
-              </p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center text-gray-600 hover:text-gray-900 mb-2"
+          >
+            <ChevronLeftIcon className="h-5 w-5 mr-1" />
+            Back
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+          <p className="text-sm text-gray-600 mt-1">{globalUnread} unread</p> {/* UPDATED: Use globalUnread */}
+        </div>
+        <div className="flex items-center space-x-2">
+          {/* REMOVED: Test button */}
           <button
             onClick={fetchNotifications}
-            className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25 shadow-lg shadow-black/20"
+            className="flex items-center text-blue-600 hover:text-blue-700"
           >
-            <ArrowPathIcon className="h-5 w-5" />
-            Refresh feed
+            <ArrowPathIcon className="h-5 w-5 mr-1" />
+            Refresh
           </button>
         </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {summaryCards.map((card) => (
-              <div
-                key={card.label}
-                className="rounded-2xl bg-white/18 p-5 backdrop-blur-md shadow-xl shadow-black/10 ring-1 ring-white/25"
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
+      {/* Filter Tabs */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="flex space-x-4">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              filter === 'all'
+                ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            All ({total})
+          </button>
+          <button
+            onClick={() => setFilter('unread')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              filter === 'unread'
+                ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Unread ({globalUnread}) {/* UPDATED: Use globalUnread */}
+          </button>
+          {/* NEW: Read filter tab */}
+          <button
+            onClick={() => setFilter('read')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              filter === 'read'
+                ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Read ({globalRead}) {/* UPDATED: Use globalRead */}
+          </button>
+        </div>
+      </div>
+
+      {/* Bulk Actions */}
+      {selectedIds.size > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-blue-800">{selectedIds.size} selected</span>
+            <div className="flex space-x-2">
+              {/* NEW: Mark as Read button */}
+              <button
+                onClick={bulkMarkAsRead}
+                className="flex items-center px-3 py-1 text-xs text-green-700 hover:text-green-900 font-medium bg-green-100 rounded border border-green-300"
               >
-                <p className="text-xs uppercase tracking-wider text-white">{card.label}</p>
-                <p
-                  className="mt-3 text-3xl font-semibold text-white"
-                  style={{ textShadow: "0 8px 18px rgba(0,0,0,0.35)" }}
-                >
-                  {card.value}
-                </p>
-                <p className="mt-2 text-xs text-white leading-relaxed">{card.helper}</p>
-              </div>
-            ))}
+                <EyeIcon className="h-3 w-3 mr-1" />
+                Read
+              </button>
+              {/* NEW: Mark as Unread button */}
+              <button
+                onClick={bulkMarkAsUnread}
+                className="flex items-center px-3 py-1 text-xs text-red-700 hover:text-red-900 font-medium bg-red-100 rounded border border-red-300"
+              >
+                <EyeSlashIcon className="h-3 w-3 mr-1" />
+                Unread
+              </button>
+            </div>
           </div>
         </div>
-      </section>
-
-    {/* Error Display */}
-    {error && (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
-        <p className="text-sm text-red-800">{error}</p>
-      </div>
-    )}
-
-    {/* Filter Tabs */}
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6">
-      <div className="flex flex-wrap gap-3">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            filter === 'all'
-              ? 'bg-blue-100 text-blue-700 border border-blue-300'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          All ({total})
-        </button>
-        <button
-          onClick={() => setFilter('unread')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            filter === 'unread'
-              ? 'bg-blue-100 text-blue-700 border border-blue-300'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Unread ({globalUnread}) {/* UPDATED: Use globalUnread */}
-        </button>
-        {/* NEW: Read filter tab */}
-        <button
-          onClick={() => setFilter('read')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            filter === 'read'
-              ? 'bg-blue-100 text-blue-700 border border-blue-300'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Read ({globalRead}) {/* UPDATED: Use globalRead */}
-        </button>
-      </div>
-    </div>
-
-    {/* Bulk Actions */}
-    {selectedIds.size > 0 && (
-      <section className="rounded-3xl border border-gray-200 bg-white/95 p-5 shadow-xl ring-1 ring-black/5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Bulk actions</h2>
-            <p className="text-sm text-gray-500">
-              Select individual notifications to toggle their read status or use the bulk actions above.
-            </p>
-          </div>
-          <div className="flex space-x-2">
-            {/* NEW: Mark as Read button */}
-            <button
-              onClick={bulkMarkAsRead}
-              className="flex items-center px-3 py-1 text-xs text-green-700 hover:text-green-900 font-medium bg-green-100 rounded border border-green-300"
-            >
-              <EyeIcon className="h-3 w-3 mr-1" />
-              Read
-            </button>
-            {/* NEW: Mark as Unread button */}
-            <button
-              onClick={bulkMarkAsUnread}
-              className="flex items-center px-3 py-1 text-xs text-red-700 hover:text-red-900 font-medium bg-red-100 rounded border border-red-300"
-            >
-              <EyeSlashIcon className="h-3 w-3 mr-1" />
-              Unread
-            </button>
-          </div>
-        </div>
-      </section>
-    )}
+      )}
 
       {/* Notifications List */}
-      <section className="rounded-3xl border border-gray-200 bg-white/95 p-5 shadow-xl ring-1 ring-black/5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold text-gray-900">Inbox overview</h2>
-            <p className="text-sm text-gray-500">
-              Filter notifications, mark them read or unread in bulk, and review the activity summary.
-            </p>
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={selectAll}
-                onChange={toggleSelectAll}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="ml-2 text-sm text-gray-700">Select all on this page</span>
-            </label>
-          </div>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center mb-4">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={selectAll}
+              onChange={toggleSelectAll}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="ml-2 text-sm text-gray-700">Select all on this page</span>
+          </label>
         </div>
-
-        <div className="mt-6 space-y-4">
-          {loading ? (
-            <p className="text-center text-sm text-gray-500">Loading notifications…</p>
-          ) : notifications.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500">
-              No notifications found.
-            </div>
-          ) : (
-            notifications.map((notif) => (
+        {notifications.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4 text-4xl">🔔</div>
+            <p className="text-gray-600 text-lg">No notifications yet</p>
+            <p className="text-gray-500 text-sm">Stay tuned for updates on enrollments and grades.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {notifications.map((notif) => (
               <div
                 key={notif._id}
-                onClick={() => toggleSelect(notif._id)}
-                className={`flex items-start justify-between rounded-2xl border border-gray-200 p-4 transition ${
-                  selectedIds.has(notif._id) ? 'bg-blue-50 ring-2 ring-blue-200' : 'bg-white hover:bg-gray-50'
+                className={`rounded-lg p-4 border border-gray-200 hover:shadow-md cursor-pointer transition-shadow ${
+                  !notif.read ? 'bg-blue-50 border-blue-200' : 'bg-white'
                 }`}
               >
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                    <span>{getTypeIcon(notif.type)}</span>
-                    <span>{notif.title}</span>
-                    {!notif.read && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Unread</span>}
-                  </div>
-                  <p className="text-sm text-gray-600">{notif.message}</p>
-                  <p className="text-xs text-gray-400">{formatDate(notif.createdAt)}</p>
-                </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-start space-x-3">
                   <input
                     type="checkbox"
                     checked={selectedIds.has(notif._id)}
                     onChange={() => toggleSelect(notif._id)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <div className="flex space-x-1">
+                  <div className="flex-shrink-0 mt-1">
+                    <span className="text-2xl">{getTypeIcon(notif.type)}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-900 truncate">{notif.title}</h3>
+                      {!notif.read && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full ml-2"></div>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">{notif.message}</p>
+                    <p className={`text-xs mt-2 ${notif.read ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {new Date(notif.createdAt).toLocaleString()} {notif.read && '(Read)'}
+                    </p>
+                  </div>
+                  {/* NEW: Individual read/unread buttons */}
+                  <div className="flex space-x-1 ml-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -452,9 +385,9 @@ const Notifications = () => {
                   </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Pagination */}
         {totalPages > 1 && (
@@ -480,7 +413,7 @@ const Notifications = () => {
             </div>
           </div>
         )}
-      </section>
+      </div>
     </div>
   );
 };

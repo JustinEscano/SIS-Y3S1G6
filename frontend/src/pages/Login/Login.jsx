@@ -19,6 +19,10 @@ function Login() {
   const { login, error: contextError, isLoading: contextLoading } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  const handleForgotPassword = () => {
+    navigate("/forgot-password");
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError("");
@@ -109,6 +113,7 @@ function Login() {
             handleSubmit={handleSubmit}
             error={displayError}
             isSubmitting={isSubmitting || contextLoading}
+            onForgotPassword={handleForgotPassword}
             switchMode={() => setIsLogin(false)}
           />
         </div>

@@ -11,7 +11,7 @@ const registerValidation = [
     .matches(/[A-Z]/).withMessage('Password must include uppercase letter')
     .matches(/[0-9]/).withMessage('Password must include number')
     .matches(/[^A-Za-z0-9]/).withMessage('Password must include special character'),
-  body('inviteCode').notEmpty().withMessage('Invite code is required'), // Assuming invite codes are used
+  body('inviteCode').optional().withMessage('Invite code is optional'), // Make inviteCode optional
 ];
 
 const loginValidation = [

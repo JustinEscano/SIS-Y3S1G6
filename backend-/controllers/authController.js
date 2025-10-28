@@ -1,7 +1,10 @@
 const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
+const crypto = require('crypto');
 const Student = require('../models/Student');
 const User = require('../models/User');
+const Invite = require('../models/Invite');
+const { sendEmail } = require('../config/email');
 
 /**
  * Generates JWT tokens for access/refresh.
@@ -26,10 +29,10 @@ const generateToken = (payload, isRefresh = false) => {
  * @returns {Object|null} User doc or null
  */
 const fetchUserByEmail = async (email) => {
-  let user = await Student.findOne({ email }).select('+password');
+  let user = await Student.findOne({ email }).select('+password +resetPasswordToken +resetPasswordExpires');
   if (user) return { user, role: 'student' };
 
-  user = await User.findOne({ email }).select('+password');
+  user = await User.findOne({ email }).select('+password +resetPasswordToken +resetPasswordExpires');
   if (user) return { user, role: user.role }; // Use actual role from user document (teacher or superadmin)
 
   return null;
@@ -41,24 +44,23 @@ const fetchUserByEmail = async (email) => {
 const register = asyncHandler(async (req, res) => {
   const { name, email, password, inviteCode, section, lrn, parentName, department } = req.body;
 
-  // Validation
-  if (!name || !email || !password || !inviteCode) {
+  if (!name || !email || !password) {
     console.warn('🚫 Invalid registration payload:', { name, email, hasInviteCode: !!inviteCode });
-    return res.status(400).json({ message: 'Name, email, password, and invite code are required' });
+    return res.status(400).json({ message: 'Name, email, and password are required' });
   }
 
-  // Determine role based on invite code
-  let role;
-  if (inviteCode === process.env.STUDENT_INVITE_CODE) {
-    role = 'student';
-  } else if (inviteCode === process.env.TEACHER_INVITE_CODE) {
-    role = 'teacher';
-  } else if (inviteCode === process.env.SUPERADMIN_INVITE_CODE) {
-    role = 'superadmin';
-  } else {
-    console.warn('🚫 Invalid invite code provided');
-    return res.status(400).json({ message: 'Invalid invite code' });
+  if (!inviteCode) {
+    console.warn('🚫 Registration attempt without invite code');
+    return res.status(400).json({ message: 'Invite code is required' });
   }
+
+  const invite = await Invite.findOne({ code: inviteCode.toUpperCase().trim(), used: false, expiresAt: { $gt: new Date() } });
+  if (!invite) {
+    console.warn('🚫 Invite code not found/expired:', inviteCode);
+    return res.status(400).json({ message: 'Invalid or expired invite code' });
+  }
+
+  const role = invite.email === '*' ? 'teacher' : invite.role || 'student';
 
   const normalizedEmail = email.toLowerCase().trim();
   console.log(`📝 Registration attempt for email: ${normalizedEmail}, role: ${role}`);
@@ -97,6 +99,13 @@ const register = asyncHandler(async (req, res) => {
         department
       });
       console.log(`✅ ${role.charAt(0).toUpperCase() + role.slice(1)} created: ID ${newUser._id}, email: ${normalizedEmail}`);
+    }
+
+    // Mark invite as used if not wildcard
+    if (invite.email !== '*') {
+      invite.used = true;
+      invite.usedBy = newUser._id;
+      await invite.save({ validateBeforeSave: false });
     }
 
     // Generate tokens
@@ -242,4 +251,109 @@ const refreshTokenHandler = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { register, login, refreshToken: refreshTokenHandler };
+const getClientBaseUrl = () =>
+  process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+
+const getResetExpiryMs = () => {
+  const minutes = parseInt(process.env.RESET_TOKEN_EXPIRY_MINUTES || '60', 10);
+  return Math.max(minutes, 1) * 60 * 1000;
+};
+
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ message: 'Valid email is required' });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const userData = await fetchUserByEmail(normalizedEmail);
+
+  if (!userData) {
+    return res.json({
+      success: true,
+      message: 'If an account exists for that email, a reset link has been sent',
+    });
+  }
+
+  const { user } = userData;
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+  user.resetPasswordToken = hashedToken;
+  user.resetPasswordExpires = Date.now() + getResetExpiryMs();
+
+  await user.save({ validateBeforeSave: false });
+
+  const resetUrl = `${getClientBaseUrl()}/reset-password?token=${resetToken}`;
+  const subject = 'Password Reset Instructions';
+  const text = [
+    `Hello ${user.name || 'there'},`,
+    '',
+    'We received a request to reset the password for your SIS account.',
+    'If you made this request, click the link below (or paste it into your browser) to set a new password:',
+    resetUrl,
+    '',
+    'This link will expire in one hour.',
+    'If you did not request a password reset, you can safely ignore this email.',
+    '',
+    'Thank you,',
+    'Oakridge SIS Team',
+  ].join('\n');
+
+  try {
+    await sendEmail(normalizedEmail, subject, text);
+  } catch (err) {
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw err;
+  }
+
+  res.json({
+    success: true,
+    message: 'If an account exists for that email, a reset link has been sent',
+  });
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const token = req.params.token || req.body.token;
+  const { password } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ message: 'Reset token is required' });
+  }
+
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters' });
+  }
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+  const now = Date.now();
+
+  let user = await Student.findOne({
+    resetPasswordToken: hashedToken,
+    resetPasswordExpires: { $gt: now },
+  }).select('+resetPasswordToken +resetPasswordExpires');
+
+  if (!user) {
+    user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: now },
+    }).select('+resetPasswordToken +resetPasswordExpires');
+  }
+
+  if (!user) {
+    return res.status(400).json({ message: 'Invalid or expired reset token' });
+  }
+
+  user.password = password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpires = undefined;
+
+  await user.save();
+
+  res.json({ success: true, message: 'Password reset successful' });
+});
+
+module.exports = { register, login, refreshToken: refreshTokenHandler, forgotPassword, resetPassword };

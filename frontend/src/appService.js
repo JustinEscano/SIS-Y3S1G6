@@ -47,19 +47,27 @@ const onRefreshed = (token) => {
 AppService.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("accessToken");
-    // ✅ Fix: Skip for public auth
-    if (config.url.includes('/auth/login') || config.url.includes('/auth/register') || config.url.includes('/auth/refresh')) {
+    // Fix: Skip for public auth
+    if (
+      config.url.includes('/auth/login') ||
+      config.url.includes('/auth/register') ||
+      config.url.includes('/auth/refresh') ||
+      config.url.includes('/auth/forgot-password') ||
+      config.url.includes('/auth/reset-password')
+    ) {
       delete config.headers.Authorization;
       if (process.env.NODE_ENV === "development") {
-        console.log("🔓 Skipped token for public:", config.url);
+        console.log(" Skipped token for public:", config.url);
       }
       return config;
     }
 
     if (token) {
-      // 🔍 DEBUG: Log token expiry status before attaching
+      // DEBUG: Log token expiry status before attaching
       const expired = isTokenExpired(token);
       if (process.env.NODE_ENV === "development") {
+        console.log(" Token expiry check:", { expired, exp: decodeToken(token)?.exp, now: Date.now() / 1000 });
+        console.log(" Attached token to", config.url);
         console.log("🔑 Token expiry check:", { expired, exp: decodeToken(token)?.exp, now: Date.now() / 1000 });
         console.log("🔑 Attached token to", config.url);
       }
