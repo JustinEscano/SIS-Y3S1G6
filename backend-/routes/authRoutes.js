@@ -1,8 +1,11 @@
 // routes/authRoutes.js (Refactored: Added refresh route, no auth middleware for refresh)
 const express = require('express');
 const router = express.Router();
-const { login, refreshToken } = require('../controllers/authController');
+const { register, login, refreshToken } = require('../controllers/authController');
 const { verifyToken } = require('../middleware/authMiddleware'); // For protected routes if needed
+
+// POST /api/auth/register
+router.post('/register', register);
 
 // POST /api/auth/login
 router.post('/login', login);

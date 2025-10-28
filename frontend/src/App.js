@@ -5,6 +5,7 @@ import { AuthProvider } from "./context/authContext";
 import Login from "./pages/Login/Login";
 import TeacherRoutes from "./pages/Teacher/Route";
 import StudentRoutes from "./pages/Student/StudentRoutes";
+import SuperadminRoutes from "./pages/Superadmin/Route";
 import RoutesProtect from "./components/routesProtect";
 
 function App() {
@@ -20,7 +21,7 @@ function App() {
           <Route
             path="/teacher/*"
             element={
-              <RoutesProtect allowedRoles={["teacher", "superadmin"]}>
+              <RoutesProtect allowedRoles={["teacher"]}>
                 <TeacherRoutes />
               </RoutesProtect>
             }
@@ -31,6 +32,15 @@ function App() {
             element={
               <RoutesProtect allowedRoles={["student"]}>
                 <StudentRoutes />
+              </RoutesProtect>
+            }
+          />
+
+          <Route
+            path="/superadmin/*"
+            element={
+              <RoutesProtect allowedRoles={["superadmin"]}>
+                <SuperadminRoutes />
               </RoutesProtect>
             }
           />

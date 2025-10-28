@@ -72,6 +72,39 @@ const getStudentSubjectAttendance = async (subjectId, studentId, options = {}, t
   }
 };
 
+// 📊 Get aggregated attendance overview for the current student
+const getStudentAttendanceOverview = async (tokenOrOptions = {}, maybeOptions) => {
+  try {
+    const options = Array.isArray(maybeOptions) || typeof maybeOptions === 'object'
+      ? maybeOptions || {}
+      : (typeof tokenOrOptions === 'object' && !Array.isArray(tokenOrOptions) ? tokenOrOptions : {});
+    const token = typeof tokenOrOptions === 'string' ? tokenOrOptions : undefined;
+    const { dateFrom, dateTo } = options;
+    let queryParams = '';
+    if (dateFrom || dateTo) {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append('dateFrom', dateFrom);
+      if (dateTo) params.append('dateTo', dateTo);
+      queryParams = `?${params.toString()}`;
+    }
+    console.log('🔍 Fetching student attendance overview...');
+    console.log('📡 URL:', `/attendance/student/overview${queryParams}`);
+    const config = token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined;
+    const res = await AppService.get(`/attendance/student/overview${queryParams}`, config);
+    console.log('✅ Success:', res.status, res.data);
+    return res.data;
+  } catch (error) {
+    console.error("❌ Error fetching student attendance overview:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    throw error;
+  }
+};
+
 // ➕ Mark attendance (bulk for a date)
 const markAttendance = async (subjectId, payload, token) => {
   try {
@@ -113,6 +146,7 @@ const deleteAttendance = async (subjectId, date, token) => {
 const attendanceService = {
   getSubjectAttendance,
   getStudentSubjectAttendance,
+  getStudentAttendanceOverview,
   getStudent, // New: For fetching student details
   markAttendance,
   deleteAttendance,

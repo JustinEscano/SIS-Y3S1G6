@@ -7,7 +7,6 @@ const {
   importGrades,
   getStudentSubjectGrades,
   updateStudentGrade,
-  updateStudentComments,
   getStudentGradeProgress
 } = require('../controllers/gradeController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');

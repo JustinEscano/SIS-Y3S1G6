@@ -1,9 +1,17 @@
 // src/components/SubjectAnalytics.jsx
-// NEW: This is the reusable component
+// FULL REFRACTOR: Enhanced with clear actual (green) vs. predicted (blue) distinction.
+// - Charts: Separate datasets for all modes; dashed blue for preds.
+// - 'current': Emphasizes actual avg; gap-fills secondary.
+// - 'sem2': Blue only on Q3/Q4; no next labels.
+// - Dropdowns: Clearer labels.
+// - Titles/Tooltips: Explicit "Actual" vs. "Predicted".
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faArrowLeft, faExclamationTriangle, faEdit, faTrash, faCheck, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faArrowLeft, faExclamationTriangle, faEdit, faTrash, faCheck, faTimes, faFileExport } from '@fortawesome/free-solid-svg-icons';
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -41,9 +49,9 @@ const QUARTERS = {
 };
 
 const PREDICTION_MODES = [
-  { value: 'current', label: 'Current Year' },
-  { value: 'sem2', label: '2nd Semester' },
-  { value: 'nextYear', label: 'Next Academic Year' },
+  { value: 'current', label: 'Current Year (Actual Avg + Gap Fills)' },
+  { value: 'sem2', label: 'Q3 & Q4 Projection' },
+  { value: 'nextYear', label: 'Next Year Projection' },
 ];
 
 const CHART_BASE_OPTIONS = {
@@ -80,6 +88,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
   const [predictionMode, setPredictionMode] = useState('current');
   const [dataScope, setDataScope] = useState('q1q2');
   const [showGradeModal, setShowGradeModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
   
   // Comment-specific states
   const [newComment, setNewComment] = useState({ title: '', content: '' });
@@ -209,14 +218,12 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
     }
   }, [subjectId, studentId, token]); // REFACTORED: Use props
 
-  // Grade input handler
   const handleGradeChange = useCallback((field, value) => {
     if (value === '' || (!isNaN(value) && Number(value) >= 0 && Number(value) <= 100)) {
-      setGradeInputs(prev => ({ ...prev, [field]: value }));
+      setGradeInputs((prev) => ({ ...prev, [field]: value }));
     }
   }, []);
 
-  // Save grades
   const handleSaveGrades = async () => {
     try {
       setSavingGrades(true);
@@ -242,11 +249,6 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
       if (q3_total_local != null && q4_total_local != null) {
         sem2 = Math.round(((q3_total_local + q4_total_local) / 2) * 100) / 100;
       }
-      let finalGrade = null;
-      if (sem1 !== null && sem2 !== null) {
-        finalGrade = Math.round(((sem1 + sem2) / 2) * 100) / 100;
-      }
-
       const gradeData = {
         quarterGrades: { 
           q1: { cs: q1_cs, exam: q1_exam },
@@ -254,8 +256,7 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
           q3: { cs: q3_cs, exam: q3_exam },
           q4: { cs: q4_cs, exam: q4_exam }
         },
-        semesterGrades: { sem1, sem2 },
-        finalGrade
+        semesterGrades: { sem1, sem2 }
       };
       await gradeService.updateStudentGrade(subjectId, studentId, gradeData, token);
       console.log('✅ Grades saved');
@@ -266,6 +267,53 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
       setError(err.response?.data?.message || err.message || 'Failed to save grades');
     } finally {
       setSavingGrades(false);
+    }
+  };
+
+  const handleExportGrades = async () => {
+    try {
+      setExporting(true);
+      const response = await gradeService.getStudentSubjectGrades(subjectId, studentId, token);
+      const gradeData = response?.data || response;
+      if (!gradeData) return;
+
+      const rows = [
+        ['Quarter', 'Component', 'Score'],
+        ['Q1', 'CS', gradeData.currentGrades?.quarterGrades?.q1?.cs ?? ''],
+        ['Q1', 'Exam', gradeData.currentGrades?.quarterGrades?.q1?.exam ?? ''],
+        ['Q1', 'Total', gradeData.currentGrades?.quarterGrades?.q1?.total ?? ''],
+        ['Q2', 'CS', gradeData.currentGrades?.quarterGrades?.q2?.cs ?? ''],
+        ['Q2', 'Exam', gradeData.currentGrades?.quarterGrades?.q2?.exam ?? ''],
+        ['Q2', 'Total', gradeData.currentGrades?.quarterGrades?.q2?.total ?? ''],
+        ['Q3', 'CS', gradeData.currentGrades?.quarterGrades?.q3?.cs ?? ''],
+        ['Q3', 'Exam', gradeData.currentGrades?.quarterGrades?.q3?.exam ?? ''],
+        ['Q3', 'Total', gradeData.currentGrades?.quarterGrades?.q3?.total ?? ''],
+        ['Q4', 'CS', gradeData.currentGrades?.quarterGrades?.q4?.cs ?? ''],
+        ['Q4', 'Exam', gradeData.currentGrades?.quarterGrades?.q4?.exam ?? ''],
+        ['Q4', 'Total', gradeData.currentGrades?.quarterGrades?.q4?.total ?? ''],
+        ['Final', 'Final Grade', gradeData.currentGrades?.finalGrade ?? ''],
+        ['Final', 'Letter', gradeData.currentGrades?.letterGrade ?? ''],
+      ];
+
+      const csvContent = rows
+        .map((row) => row.map((cell) => (cell == null ? '' : `${cell}`.replace(/"/g, '""'))).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const safeSubject = (gradeData.student?.name || 'student').replace(/\s+/g, '_');
+      link.setAttribute('download', `${safeSubject}-quarter-grades.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('💥 Export error:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to export grades');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -375,13 +423,13 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
   const getChartTitle = (mode) => {
     switch (mode) {
       case 'current':
-        return actualQuarters.length > 0 ? `Current Year Grades & Projections` : 'No Grades Yet';
+        return actualQuarters.length > 0 ? `Current Year: Actual Grades (Green) & Gap Predictions (Blue)` : 'No Actual Grades Yet';
       case 'sem2':
-        return 'Sem1 Progress & Sem2 Prediction';
+        return 'Q3/Q4 Projections: Actual (Green) vs. Predicted (Blue)';
       case 'nextYear':
-        return 'Full Year Progress & Next Year Prediction';
+        return 'Full Year Actuals & Next Year Predictions: Green vs. Blue';
       default:
-        return 'Grade Progress';
+        return 'Grade Progress: Actual (Green) vs. Predicted (Blue)';
     }
   };
   const chartTitle = getChartTitle(predictionMode);
@@ -505,7 +553,12 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
                 ...CHART_BASE_OPTIONS, 
                 plugins: { 
                   ...CHART_BASE_OPTIONS.plugins, 
-                  title: { display: true, text: chartTitle } 
+                  title: { display: true, text: chartTitle } ,
+                  tooltip: {
+                    callbacks: {
+                      label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(1)}`
+                    }
+                  }
                 } 
               }} 
               data={chartData || { labels: [], datasets: [] }} 
@@ -530,12 +583,23 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
           </div>
           <div className="space-y-4 text-center">
             <div>
-              <p className="text-sm text-gray-500">Current Average</p>
+              <p className="text-sm text-gray-500">
+                {predictionMode === 'current' ? 'Current Average (Actual Grades Only)' : 'Current Average'}
+              </p>
               <p className="text-2xl font-bold text-blue-600">{currentAvg.toFixed(1)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">{predictionMode === 'current' ? 'Most Recent Grade' : 'Prediction'}</p>
-              <p className="text-2xl font-bold text-green-600">{!isNaN(displayPredictValue) ? displayPredictValue.toFixed(1) : 'N/A'}</p>
+              <p className="text-sm text-gray-500">
+                {predictionMode === 'current' 
+                  ? 'Most Recent Actual Grade' 
+                  : predictionMode === 'sem2' 
+                    ? 'Q3/Q4 Predicted Average (Blue Line)' 
+                    : 'Predicted Average (Blue Line)'
+                }
+              </p>
+              <p className="text-2xl font-bold text-green-600">
+                {!isNaN(displayPredictValue) ? displayPredictValue.toFixed(1) : 'N/A'}
+              </p>
             </div>
             {predictionMode !== 'current' && (
               <div>
@@ -552,12 +616,21 @@ const SubjectAnalytics = ({ subjectId, studentId, user, backUrl }) => {
           {/* REFACTORED: Conditional "Edit" button */}
           {user?.role !== 'student' && (
             <div className="mt-6">
-              <button
-                onClick={() => setShowGradeModal(true)}
-                className="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
-              >
-                Edit Quarter Grades
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => setShowGradeModal(true)}
+                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-sky-600 transition hover:bg-gray-100"
+                >
+                  <FontAwesomeIcon icon={faEdit} /> Update grades
+                </button>
+                <button
+                  onClick={handleExportGrades}
+                  disabled={exporting}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-5 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
+                >
+                  <FontAwesomeIcon icon={faFileExport} /> Export CSV
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -739,9 +812,17 @@ const AddCommentForm = ({ newComment, onChange, onAdd, suggestedTitle, editingCo
 // Sub-component: Grade Input Modal
 const GradeModal = ({ isOpen, onClose, selectedQuarter, onQuarterChange, quarterInputs, calculatedFinal, predictedFinal, onSave, saving }) => {
   if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Enter Quarter Grades</h2>
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Select Quarter:</label>
@@ -793,7 +874,8 @@ const GradeModal = ({ isOpen, onClose, selectedQuarter, onQuarterChange, quarter
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

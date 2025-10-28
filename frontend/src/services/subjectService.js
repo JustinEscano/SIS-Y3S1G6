@@ -20,11 +20,15 @@ const getTeacherSubjects = async (token) => {
 };
 
 // 📚 Get all subjects for the authenticated student
-const getStudentSubjects = async (token) => {
+const getStudentSubjects = async (tokenOrConfig) => {
   try {
     console.log('🔍 Fetching student subjects...');
     console.log('📡 URL:', '/subjects/student');
-    const res = await AppService.get('/subjects/student', token);
+    const config = typeof tokenOrConfig === 'string'
+      ? { headers: { Authorization: `Bearer ${tokenOrConfig}` } }
+      : tokenOrConfig;
+    const res = await AppService.get('/subjects/student', config);
+
     console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {

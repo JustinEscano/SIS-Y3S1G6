@@ -5,17 +5,20 @@ import StudentLayout from "./layout/StudentLayout";
 import Dashboard from "./sections/Dashboard";
 import StudentSubjectList from "./sections/StudentSubjectList";
 import StudentSubjectAnalytics from "./sections/StudentSubjectAnalytics";
-import GradeProgress from "./sections/GradeProgress"; // NEW Import
+import GradeProgress from "./sections/GradeProgress";
+import Profile from "./sections/Profile";
+import AttendanceOverview from "./sections/AttendanceOverview";
 
 function StudentRoutes() {
   return (
     <StudentLayout>
-      <Routes> {/* Removed duplicate wrapper */}
+      <Routes>
         <Route index element={<Dashboard />} />
         <Route path="subjects" element={<StudentSubjectList />} />
-        {/* Adjusted analytics route for consistency */}
         <Route path="subjects/:id/analytics" element={<StudentSubjectAnalytics />} />
-        <Route path="progress" element={<GradeProgress />} /> {/* NEW Route */}
+        <Route path="progress" element={<GradeProgress />} />
+        <Route path="attendance" element={<AttendanceOverview />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="*" element={<div className="p-8 text-center">Page not found. <a href="/student">Go home</a></div>} />
       </Routes>
     </StudentLayout>

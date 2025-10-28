@@ -3,9 +3,11 @@ const mongoose = require('mongoose');
 const subjectSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
+    code: { type: String, trim: true },
     description: { type: String }, // Explicitly optional
-    teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    students: { 
+    teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Optional until assigned
+
+    students: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
       default: [] // Ensures empty array if not provided
     },
@@ -14,8 +16,8 @@ const subjectSchema = new mongoose.Schema(
       type: Number, 
       required: true, 
       min: 7, 
-      max: 12, 
-      enum: [7, 8, 9, 10, 11, 12] // Align with Student.currentGradeLevel
+      max: 10, 
+      enum: [7, 8, 9, 10] // Aligned with current Junior High levels
     },
     academicYear: { 
       type: String, 

@@ -7,15 +7,50 @@ const asyncHandler = require('express-async-handler');
 const Joi = require('joi');
 const { createSubjectSchema, updateSubjectSchema } = require('../middleware/validate');
 
+const TEACHER_POPULATE = '_id name email department';
+const STUDENT_POPULATE = '_id name email section lrn';
+
 /**
- * @desc Get subjects for the authenticated teacher (non-archived)
+ * @desc Get subjects for the authenticated teacher (non-archived) - ALL teachers see ALL subjects
  * @route GET /api/subjects
  * @access Private (Teacher)
  */
 const getTeacherSubjects = asyncHandler(async (req, res) => {
-  const subjects = await Subject.find({ teacher: req.user.id, archived: false })
-    .populate('students', '_id name email section lrn')  // Include _id for consistency
+  console.log(`👨‍🏫 Fetching ALL subjects for user: ${req.user.id}, role: ${req.role}`);
+  
+  // For both teachers and superadmins, return ALL non-archived subjects
+  const subjects = await Subject.find({ archived: false })
+    .populate('students', '_id name email section lrn')
+    .populate('teacher', '_id name email department')
     .sort({ createdAt: -1 });
+  
+  console.log(`✅ Found ${subjects.length} subjects for user ${req.user.id}`);
+  
+  res.status(200).json({
+    success: true,
+    count: subjects.length,
+    data: subjects
+  });
+});
+
+/**
+ * @desc Get all subjects (Superadmin only) - This is now redundant but keeping for backward compatibility
+ * @route GET /api/subjects/all
+ * @access Private (Superadmin)
+ */
+const getAllSubjects = asyncHandler(async (req, res) => {
+  if (req.role !== 'superadmin') {
+    return res.status(403).json({
+      success: false,
+      error: 'Access denied - Superadmin only'
+    });
+  }
+  
+  const subjects = await Subject.find({})
+    .populate('students', '_id name email section lrn')
+    .populate('teacher', '_id name email department')
+    .sort({ createdAt: -1 });
+  
   res.status(200).json({
     success: true,
     count: subjects.length,
@@ -33,7 +68,7 @@ const getStudentSubjects = asyncHandler(async (req, res) => {
     students: req.user.id,
     archived: false
   })
-    .populate('teacher', '_id name email department')  // Include _id for consistency
+    .populate('teacher', '_id name email department')
     .sort({ createdAt: -1 });
   res.status(200).json({
     success: true,
@@ -49,21 +84,21 @@ const getStudentSubjects = asyncHandler(async (req, res) => {
  */
 const getSubjectById = asyncHandler(async (req, res) => {
   const subject = await Subject.findById(req.params.id)
-    .populate('students', '_id name email section lrn parentName')  // _id first for enrollment checks
-    .populate('teacher', '_id name email department');  // _id for teacher checks
+    .populate('students', '_id name email section lrn parentName')
+    .populate('teacher', '_id name email department');
   if (!subject) {
     return res.status(404).json({
       success: false,
       error: 'Subject not found'
     });
   }
-  // Access: Teacher (owner) OR enrolled student
-  const isTeacher = subject.teacher._id.toString() === req.user.id;
+  // Access: ANY Teacher OR enrolled student (removed teacher ownership check)
+  const isTeacher = req.role === 'teacher' || req.role === 'superadmin';
   const isEnrolledStudent = subject.students.some(s => s._id.toString() === req.user.id);
   if (!isTeacher && !isEnrolledStudent) {
     return res.status(403).json({
       success: false,
-      error: 'Access denied - You must be the teacher or enrolled in this subject'
+      error: 'Access denied - You must be a teacher or enrolled in this subject'
     });
   }
   // Privacy: For students, only return their own student info
@@ -83,7 +118,7 @@ const getSubjectById = asyncHandler(async (req, res) => {
  */
 const getSubjectStudents = asyncHandler(async (req, res) => {
   const subject = await Subject.findById(req.params.id)
-    .populate('students', '_id name email section lrn parentName')  // _id for access checks
+    .populate('students', '_id name email section lrn parentName')
     .populate('teacher', '_id name email department');
   if (!subject) {
     return res.status(404).json({
@@ -91,13 +126,13 @@ const getSubjectStudents = asyncHandler(async (req, res) => {
       error: 'Subject not found'
     });
   }
-  // Access: Teacher OR enrolled student
-  const isTeacher = subject.teacher._id.toString() === req.user.id;
+  // Access: ANY Teacher OR enrolled student (removed teacher ownership check)
+  const isTeacher = req.role === 'teacher' || req.role === 'superadmin';
   const isEnrolledStudent = subject.students.some(s => s._id.toString() === req.user.id);
   if (!isTeacher && !isEnrolledStudent) {
     return res.status(403).json({
       success: false,
-      error: 'Access denied - You must be the teacher or enrolled in this subject'
+      error: 'Access denied - You must be a teacher or enrolled in this subject'
     });
   }
   // Privacy: For students, only return their own info
@@ -126,7 +161,7 @@ const getSubjectStudents = asyncHandler(async (req, res) => {
  * @access Private (Teacher)
  */
 const createSubject = asyncHandler(async (req, res) => {
-  console.log('🔍 Create payload:', req.body); // Debug: See academicYear string
+  console.log('🔍 Create payload:', req.body);
 
   const { error } = createSubjectSchema.validate(req.body);
   if (error) {
@@ -137,7 +172,7 @@ const createSubject = asyncHandler(async (req, res) => {
     });
   }
 
-  const { name, description, gradeLevel, academicYear, students: studentIds = [] } = req.body;
+  const { name, code, description, gradeLevel, academicYear, students: studentIds = [] } = req.body;
 
   // Validate academicYear format
   if (!academicYear || !/^\d{4}-\d{4}$/.test(academicYear)) {
@@ -158,20 +193,44 @@ const createSubject = asyncHandler(async (req, res) => {
     }
   }
 
+  // Determine teacher ID: superadmin can assign to any teacher, regular teacher can only assign to themselves
+  let teacherId;
+  if (req.role === 'superadmin' && req.body.teacher) {
+    // Validate that the assigned teacher exists
+    const assignedTeacher = await User.findById(req.body.teacher);
+    if (!assignedTeacher || assignedTeacher.role !== 'teacher') {
+      return res.status(400).json({
+        success: false,
+        error: 'Assigned teacher not found or is not a teacher'
+      });
+    }
+    teacherId = req.body.teacher;
+    console.log(`👨‍🏫 Superadmin assigning subject to teacher: ${teacherId}`);
+  } else if (req.role === 'teacher') {
+    teacherId = req.user.id;
+    console.log(`👨‍🏫 Teacher creating subject for themselves: ${teacherId}`);
+  }
+
   const subject = await Subject.create({
     name,
     description,
-    teacher: req.user.id,
+    code,
+    teacher: teacherId,
     students: studentIds,
     gradeLevel,
-    academicYear  // Save as string
+    academicYear
   });
 
-  console.log('✅ Created subject with academicYear:', subject.academicYear); // Debug
+  console.log('✅ Created subject:', {
+    id: subject._id,
+    name: subject.name,
+    teacher: subject.teacher,
+    academicYear: subject.academicYear
+  });
 
   // Populate and return
   const populatedSubject = await Subject.findById(subject._id)
-    .populate('students', '_id name email section lrn')  // _id for consistency
+    .populate('students', '_id name email section lrn')
     .populate('teacher', '_id name email department');
 
   res.status(201).json({
@@ -181,12 +240,13 @@ const createSubject = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc Update subject details
+ * @desc Update subject details - ANY teacher can update ANY subject
  * @route PUT /api/subjects/:id
  * @access Private (Teacher)
  */
 const updateSubject = asyncHandler(async (req, res) => {
-  console.log('🔍 Update payload:', req.body); // Debug
+  console.log('🔍 Update payload:', req.body);
+  console.log(`👨‍🏫 User updating subject: ${req.user.id}, role: ${req.role}`);
 
   const { error } = updateSubjectSchema.validate(req.body);
   if (error) {
@@ -203,12 +263,8 @@ const updateSubject = asyncHandler(async (req, res) => {
       error: 'Subject not found'
     });
   }
-  if (subject.teacher._id.toString() !== req.user.id) {
-    return res.status(403).json({
-      success: false,
-      error: 'Access denied'
-    });
-  }
+
+  console.log(`✅ Allowing update - User ${req.user.id} is a ${req.role}`);
 
   // Update academicYear if provided
   if (req.body.academicYear !== undefined) {
@@ -219,7 +275,7 @@ const updateSubject = asyncHandler(async (req, res) => {
       });
     }
     subject.academicYear = req.body.academicYear;
-    console.log('🔍 Updated academicYear to:', subject.academicYear); // Debug
+    console.log('🔍 Updated academicYear to:', subject.academicYear);
   }
 
   // Handle students update (add/remove)
@@ -261,7 +317,7 @@ const updateSubject = asyncHandler(async (req, res) => {
             console.log(`🆕 Auto-created Grade for student ${newStudentId} in subject ${subject._id} with academicYear: ${subject.academicYear}`);
           }
           
-          // REFACTOR: Update student's enrolledClasses history
+          // Update student's enrolledClasses history
           await Student.findByIdAndUpdate(newStudentId, {
             $addToSet: {
               enrolledClasses: {
@@ -284,7 +340,7 @@ const updateSubject = asyncHandler(async (req, res) => {
           await Attendance.deleteMany({ subject: subject._id, student: removedStudentId });
           console.log(`🗑️ Cascaded delete for removed student ${removedStudentId} in subject ${subject._id}`);
           
-          // REFACTOR: Update student's enrolledClasses history to 'archived'
+          // Update student's enrolledClasses history to 'archived'
           await Student.updateOne(
             { _id: removedStudentId, 'enrolledClasses.subject': subject._id },
             { $set: { 'enrolledClasses.$.status': 'archived' } }
@@ -296,16 +352,27 @@ const updateSubject = asyncHandler(async (req, res) => {
   }
 
   // Update other fields
-  if (req.body.name) subject.name = req.body.name;
+  if (req.body.name !== undefined) subject.name = req.body.name;
   if (req.body.description !== undefined) subject.description = req.body.description;
-  if (req.body.gradeLevel) subject.gradeLevel = req.body.gradeLevel;
+  if (req.body.code !== undefined) subject.code = req.body.code;
+  if (req.body.gradeLevel !== undefined) subject.gradeLevel = req.body.gradeLevel;
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'teacher')) {
+    if (req.body.teacher) {
+      subject.teacher = req.body.teacher;
+    } else {
+      subject.teacher = undefined;
+    }
+  } else if (!subject.teacher && req.role === 'teacher') {
+    subject.teacher = req.user.id;
+  }
   if (req.body.archived !== undefined) subject.archived = req.body.archived;
 
   await subject.save();
 
   // Populate and return
   const populatedSubject = await Subject.findById(subject._id)
-    .populate('students', '_id name email section lrn')  // _id for consistency
+    .populate('students', '_id name email section lrn')
     .populate('teacher', '_id name email department');
 
   res.status(200).json({
@@ -315,7 +382,7 @@ const updateSubject = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc Add a single student to a subject
+ * @desc Add a single student to a subject - ANY teacher can add students to ANY subject
  * @route POST /api/subjects/:id/students
  * @access Private (Teacher)
  */
@@ -335,10 +402,11 @@ const addStudentToSubject = asyncHandler(async (req, res) => {
       error: 'Subject not found'
     });
   }
-  if (subject.teacher._id.toString() !== req.user.id) {
+  // ANY teacher can add students to ANY subject (removed ownership check)
+  if (req.role !== 'teacher' && req.role !== 'superadmin') {
     return res.status(403).json({
       success: false,
-      error: 'Access denied - only the teacher can add students'
+      error: 'Access denied - Only teachers and superadmins can add students'
     });
   }
   if (subject.archived) {
@@ -360,16 +428,21 @@ const addStudentToSubject = asyncHandler(async (req, res) => {
       error: 'Student not found'
     });
   }
+  // ensure subject has a teacher assigned
+  if (!subject.teacher && req.role === 'teacher') {
+    subject.teacher = req.user.id;
+  }
   subject.students.push(studentId);
   await subject.save();
   
-  // REFACTOR: Update student's enrolledClasses history
+  // Update student's enrolledClasses history
   await Student.findByIdAndUpdate(studentId, {
     $addToSet: {
       enrolledClasses: {
         subject: subject._id,
         academicYear: subject.academicYear,
-        status: 'active'
+        status: 'active',
+        assignedBy: req.user.id
       }
     }
   });
@@ -399,7 +472,7 @@ const addStudentToSubject = asyncHandler(async (req, res) => {
   }
   // Populate and return
   const populatedSubject = await Subject.findById(id)
-    .populate('students', '_id name email section lrn')  // _id for consistency
+    .populate('students', '_id name email section lrn')
     .populate('teacher', '_id name email department');
   res.status(200).json({
     success: true,
@@ -412,7 +485,7 @@ const addStudentToSubject = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc Remove a single student from a subject
+ * @desc Remove a single student from a subject - ANY teacher can remove students from ANY subject
  * @route DELETE /api/subjects/:id/students/:studentId
  * @access Private (Teacher)
  */
@@ -431,10 +504,11 @@ const removeStudentFromSubject = asyncHandler(async (req, res) => {
       error: 'Subject not found'
     });
   }
-  if (subject.teacher._id.toString() !== req.user.id) {
+  // ANY teacher can remove students from ANY subject (removed ownership check)
+  if (req.role !== 'teacher' && req.role !== 'superadmin') {
     return res.status(403).json({
       success: false,
-      error: 'Access denied - only the teacher can remove students'
+      error: 'Access denied - Only teachers and superadmins can remove students'
     });
   }
   if (subject.archived) {
@@ -460,7 +534,7 @@ const removeStudentFromSubject = asyncHandler(async (req, res) => {
   subject.students.splice(studentIndex, 1);
   await subject.save();
 
-  // REFACTOR: Update student's enrolledClasses history to 'archived'
+  // Update student's enrolledClasses history to 'archived'
   await Student.updateOne(
     { _id: studentId, 'enrolledClasses.subject': subjectId },
     { $set: { 'enrolledClasses.$.status': 'archived' } }
@@ -479,7 +553,7 @@ const removeStudentFromSubject = asyncHandler(async (req, res) => {
   }
   // Populate and return
   const populatedSubject = await Subject.findById(subjectId)
-    .populate('students', '_id name email section lrn')  // _id for consistency
+    .populate('students', '_id name email section lrn')
     .populate('teacher', '_id name email department');
   res.status(200).json({
     success: true,
@@ -493,14 +567,16 @@ const removeStudentFromSubject = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc Get ARCHIVED subjects for the authenticated teacher
+ * @desc Get ARCHIVED subjects for the authenticated teacher - ALL teachers see ALL archived subjects
  * @route GET /api/subjects/archived/teacher
  * @access Private (Teacher)
  */
 const getTeacherArchivedSubjects = asyncHandler(async (req, res) => {
-  const subjects = await Subject.find({ teacher: req.user.id, archived: true }) // Filter for archived: true
+  // For both teachers and superadmins, return ALL archived subjects
+  const subjects = await Subject.find({ archived: true })
     .populate('students', '_id name email section lrn')
-    .sort({ updatedAt: -1 }); // Sort by most recently archived
+    .populate('teacher', '_id name email department')
+    .sort({ updatedAt: -1 });
   res.status(200).json({
     success: true,
     count: subjects.length,
@@ -516,10 +592,10 @@ const getTeacherArchivedSubjects = asyncHandler(async (req, res) => {
 const getStudentArchivedSubjects = asyncHandler(async (req, res) => {
   const subjects = await Subject.find({
     students: req.user.id,
-    archived: true // Filter for archived: true
+    archived: true
   })
     .populate('teacher', '_id name email department')
-    .sort({ updatedAt: -1 }); // Sort by most recently archived
+    .sort({ updatedAt: -1 });
   res.status(200).json({
     success: true,
     count: subjects.length,
@@ -537,5 +613,6 @@ module.exports = {
   addStudentToSubject,
   removeStudentFromSubject,
   getTeacherArchivedSubjects,
-  getStudentArchivedSubjects
+  getStudentArchivedSubjects,
+  getAllSubjects
 };

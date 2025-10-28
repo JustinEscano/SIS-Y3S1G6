@@ -10,12 +10,14 @@ import Analytics from "./sections/Analytics";
 import SubjectOverview from "./sections/SubjectOverview"; // NEW: Import the combined component
 import StudentAnalytics from "./sections/StudentAnalytics";
 import StudentAttendanceHistory from "./sections/StudentAttendanceHistory";
+import Profile from "./sections/Profile";
 
 function TeacherRoutes() {
   return (
     <TeacherLayout>
       <Routes>
         <Route index element={<Dashboard />} /> {/* Default route for /teacher */}
+        <Route path="dashboard" element={<Dashboard />} />
         <Route path="subjects" element={<SubjectManagement />} />
 
         {/* --- CONSOLIDATED ROUTE --- */}
@@ -34,6 +36,7 @@ function TeacherRoutes() {
         <Route path="students" element={<StudentManagement />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="analytics" element={<Analytics />} />
+        <Route path="profile" element={<Profile />} />
 
          {/* Old separate routes are now handled by SubjectOverview - REMOVE OR COMMENT OUT */}
          {/*

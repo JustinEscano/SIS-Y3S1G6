@@ -1,8 +1,9 @@
 // src/pages/Student/sections/StudentSubjectList.js
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBook, faChartLine, faHistory } from '@fortawesome/free-solid-svg-icons'; // Added faHistory
+import { faBook, faChartLine, faHistory, faLayerGroup, faCalendarAlt, faArchive, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
+
 import subjectService from '../../../services/subjectService';
 import { useAuth } from '../../../context/authContext';
 import LoadingSpinner from '../../../components/loadingSpinner';
@@ -87,6 +88,7 @@ const StudentSubjectList = () => {
 
   const handleRetry = () => {
     setError(null);
+
     // Re-trigger fetch by toggling mode temporarily (or just call fetch function again)
     const fetchSubjectsAgain = async () => {
         // Copied fetch logic from useEffect
@@ -114,6 +116,47 @@ const StudentSubjectList = () => {
     if(token) fetchSubjectsAgain();
   };
 
+  const summaryCards = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const upcomingSubjects = subjects.filter((s) => {
+      if (!s?.academicYear) return false;
+      const [startYear] = s.academicYear.split('-');
+      const numericYear = parseInt(startYear, 10);
+      return !Number.isNaN(numericYear) && numericYear >= currentYear;
+    });
+
+    return [
+      {
+        label: viewMode === 'active' ? 'Active subjects' : 'Archived subjects',
+        value: subjects.length,
+        helper: viewMode === 'active' ? 'Currently available for study' : 'Previously completed classes',
+        icon: viewMode === 'active' ? faLayerGroup : faArchive,
+        accent: viewMode === 'active' ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-600',
+      },
+      {
+        label: 'With analytics enabled',
+        value: viewMode === 'active' ? subjects.length : 0,
+        helper: viewMode === 'active' ? 'Tap a card to open insights' : 'Analytics disabled for archived classes',
+        icon: faChartLine,
+        accent: 'bg-sky-100 text-sky-600',
+      },
+      {
+        label: 'Upcoming academic years',
+        value: upcomingSubjects.length,
+        helper: 'Classes scheduled this school year',
+        icon: faCalendarAlt,
+        accent: 'bg-amber-100 text-amber-600',
+      },
+      {
+        label: 'View mode',
+        value: viewMode === 'active' ? 'Active' : 'Archived',
+        helper: 'Switch to review other records',
+        icon: faHistory,
+        accent: 'bg-purple-100 text-purple-600',
+      },
+    ];
+  }, [subjects, viewMode]);
+
   if (loading && subjects.length === 0) { // Show full screen spinner only on initial load
     return (
       <LoadingSpinner
@@ -126,96 +169,151 @@ const StudentSubjectList = () => {
   }
 
   return (
-    <div className="ml-1 pt-8 pl-0 pr-5 py-5 bg-gray-50 min-h-screen">
-      {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          <div className="flex justify-between items-start">
-            <span>{error}</span>
-            <div className="flex space-x-2">
+    <div className="space-y-8 px-4 pb-16 pt-10 sm:px-8 bg-gray-50 min-h-screen">
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-sky-700 via-sky-600 to-sky-900 text-white shadow-2xl">
+        <div
+          className="absolute inset-0 opacity-25"
+          style={{ backgroundImage: "radial-gradient(circle at top left, rgba(255,255,255,0.6), transparent 55%)" }}
+          aria-hidden="true"
+        />
+        <div className="relative z-10 space-y-6 p-6 md:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white">
+                <FontAwesomeIcon icon={faBook} /> My subjects
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold text-white md:text-4xl">Keep tabs on every class you belong to</h1>
+                <p className="text-sm text-white/85">
+                  Switch between active and archived classes, jump into analytics for current subjects, and stay organised throughout the school year.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col items-start gap-3 text-sm md:items-end">
               <button
-                onClick={handleRetry}
-                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                onClick={() => setViewMode(viewMode === 'active' ? 'archived' : 'active')}
+                className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-white/25"
               >
-                Retry
+                <FontAwesomeIcon icon={faHistory} /> {viewMode === 'active' ? 'View archived subjects' : 'View active subjects'}
               </button>
-              <button onClick={() => setError(null)} className="text-red-700 hover:text-red-900">×</button>
             </div>
           </div>
+
+          {error && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              <FontAwesomeIcon icon={faCircleExclamation} className="mr-2" />
+              {error}
+              <div className="mt-3 flex gap-2 text-xs">
+                <button
+                  onClick={handleRetry}
+                  className="inline-flex items-center gap-2 rounded-full bg-red-500 px-3 py-1 font-semibold text-white transition hover:bg-red-600"
+                >
+                  Retry
+                </button>
+                <button onClick={() => setError(null)} className="rounded-full bg-white/80 px-3 py-1 font-semibold text-red-600 transition hover:bg-white">
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </section>
 
-      {/* Header */}
-      <div className="flex justify-between items-center mb-5">
-        <h1 className="text-3xl font-bold text-gray-800">My Subjects</h1>
-        {/* Toggle Button */}
-        <button
-          onClick={() => setViewMode(viewMode === 'active' ? 'archived' : 'active')}
-          title={viewMode === 'active' ? 'View Past Subjects' : 'View Current Subjects'}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 font-semibold rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm"
-        >
-          <FontAwesomeIcon icon={faHistory} />
-          {viewMode === 'active' ? 'View Archived' : 'View Active'}
-        </button>
-      </div>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => (
+          <div key={card.label} className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm">
+            <span className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold ${card.accent}`}>
+              <FontAwesomeIcon icon={card.icon} />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{card.label}</p>
+              <p className="text-2xl font-semibold text-gray-900">{card.value}</p>
+              <p className="text-xs text-gray-500">{card.helper}</p>
+            </div>
+          </div>
+        ))}
+      </section>
 
-      {/* Subjects Grid */}
-      <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
-          {viewMode === 'active' ? 'Currently Enrolled' : 'Past Subjects'} ({subjects.length})
-        </h2>
-        {loading ? ( // Inline loading indicator when switching modes
-            <div className="text-center py-8"><LoadingSpinner message={`Loading ${viewMode} subjects...`} /></div>
+      <section className="rounded-3xl border border-gray-200 bg-white/95 p-6 shadow-xl ring-1 ring-black/5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              {viewMode === 'active' ? 'Currently enrolled subjects' : 'Archived subjects'}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {viewMode === 'active'
+                ? 'Select a subject to open analytics and grade forecasts.'
+                : 'Review the classes you previously completed. Analytics access is disabled for archived records.'}
+            </p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="mt-10 text-center">
+            <LoadingSpinner message={`Loading ${viewMode} subjects...`} />
+          </div>
         ) : subjects.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">
-             {viewMode === 'active' ? 'No subjects currently enrolled. Contact your teacher.' : 'No past subjects found.'}
-          </p>
+          <div className="mt-8 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500">
+            {viewMode === 'active'
+              ? 'No subjects currently enrolled. Reach out to your adviser if this seems incorrect.'
+              : 'No archived subjects found yet. Your completed classes will appear here.'}
+          </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-              {paginatedSubjects.map((subject) => (
-                <div
-                  key={subject._id}
-                  className={`border rounded-lg p-4 pb-12 hover:shadow-md transition-shadow duration-200 relative min-h-[140px] ${ // Added pb-12 for icon space
-                    viewMode === 'archived'
-                      ? 'border-gray-300 bg-gray-50 opacity-70 cursor-not-allowed' // Make archived non-clickable visually
-                      : 'border-gray-200 cursor-pointer'
-                  }`}
-                  onClick={() => handleCardClick(subject._id)} // Click handled conditionally
-                >
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">{subject.name}</h3>
-                  <p className="text-xs text-gray-400 mb-4 line-clamp-2">{subject.description}</p>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Grade {subject.gradeLevel} - {subject.academicYear || 'N/A'}
-                  </p>
-                  {/* Teacher Info (Could be useful for past subjects) */}
-                  {subject.teacher && (
-                     <p className="text-xs text-gray-400 absolute bottom-4 left-4">
-                        Teacher: {subject.teacher.name || 'N/A'}
-                     </p>
-                  )}
-
-                  {/* Analytics Icon (Only for Active) */}
-                  {viewMode === 'active' && (
-                     <div className="absolute bottom-4 right-4" title="View Analytics">
-                       <FontAwesomeIcon icon={faChartLine} className="text-[#81020b] text-lg" />
-                     </div>
-                  )}
-                </div>
-              ))}
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {paginatedSubjects.map((subject) => {
+                const isArchived = viewMode === 'archived';
+                return (
+                  <div
+                    key={subject._id}
+                    onClick={() => !isArchived && handleCardClick(subject._id)}
+                    className={`group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition ${
+                      isArchived
+                        ? 'cursor-not-allowed opacity-70'
+                        : 'cursor-pointer hover:-translate-y-1 hover:shadow-lg'
+                    }`}
+                  >
+                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-500 via-sky-400 to-sky-600 opacity-80" />
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <h3 className="text-lg font-semibold text-gray-900">{subject.name}</h3>
+                        {!isArchived && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-600">
+                            <FontAwesomeIcon icon={faChartLine} /> Analytics
+                          </span>
+                        )}
+                      </div>
+                      <p className="line-clamp-2 text-xs text-gray-500">{subject.description || 'No description provided.'}</p>
+                      <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1">
+                          <FontAwesomeIcon icon={faBook} /> Grade {subject.gradeLevel ?? '—'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1">
+                          <FontAwesomeIcon icon={faCalendarAlt} /> {subject.academicYear || 'Academic year TBD'}
+                        </span>
+                      </div>
+                      {subject.teacher?.name && (
+                        <p className="text-xs text-gray-400">Teacher: {subject.teacher.name}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
             {subjects.length > itemsPerPage && (
               <div className="mt-6 flex justify-center">
-                 <Pagination // Use the Pagination component
-                    totalItems={subjects.length}
-                    itemsPerPage={itemsPerPage}
-                    currentPage={currentPage}
-                    onPageChange={setCurrentPage}
-                 />
+                <Pagination
+                  totalItems={subjects.length}
+                  itemsPerPage={itemsPerPage}
+                  currentPage={currentPage}
+                  onPageChange={setCurrentPage}
+                />
               </div>
             )}
           </>
         )}
-      </div>
+      </section>
     </div>
   );
 };

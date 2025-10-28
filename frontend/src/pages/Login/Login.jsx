@@ -60,8 +60,10 @@ function Login() {
         const redirectRole = result.role || "unknown";
         if (redirectRole === "student") {
           navigate("/student", { replace: true });
-        } else if (redirectRole === "teacher" || redirectRole === "superadmin") {
+        } else if (redirectRole === "teacher") {
           navigate("/teacher", { replace: true });
+        } else if (redirectRole === "superadmin") {
+          navigate("/superadmin", { replace: true });
         } else {
           navigate("/login", { replace: true }); // Fallback
         }
