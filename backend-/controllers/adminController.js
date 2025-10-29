@@ -497,7 +497,7 @@ const getAnalyticsSummary = asyncHandler(async (req, res) => {
 
 const generateInviteCode = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, role } = req.body;
     
     // Generate random 8-character code
     const code = Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -510,6 +510,7 @@ const generateInviteCode = async (req, res) => {
     const invite = new Invite({
       code,
       email,
+      role,
       createdBy: req.user.id,
       expiresAt
     });
@@ -524,6 +525,7 @@ const generateInviteCode = async (req, res) => {
     
     res.status(201).json({ success: true, code });
   } catch (err) {
+    console.error('Error generating invite:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };

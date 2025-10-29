@@ -135,7 +135,7 @@ function SystemSettings() {
             >
               <option value="student">Student</option>
               <option value="teacher">Teacher</option>
-              <option value="admin">Admin</option>
+              <option value="superadmin">Superadmin</option>
             </select>
           </label>
           
@@ -169,6 +169,7 @@ function SystemSettings() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Code</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Expires</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Created By</th>
@@ -177,7 +178,7 @@ function SystemSettings() {
             <tbody className="divide-y divide-gray-200 bg-white">
               {isFetching ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-sm text-gray-500">
+                  <td colSpan="6" className="px-6 py-8 text-center text-sm text-gray-500">
                     Loading invites...
                   </td>
                 </tr>
@@ -186,6 +187,7 @@ function SystemSettings() {
                   <tr key={invite._id}>
                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{invite.code}</td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{invite.email}</td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 capitalize">{invite.role || 'Student'}</td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${invite.used ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                         {invite.used ? 'Used' : 'Active'}
@@ -201,7 +203,7 @@ function SystemSettings() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-sm text-gray-500">
+                  <td colSpan="6" className="px-6 py-8 text-center text-sm text-gray-500">
                     No invites found yet. Send a new invite to populate history.
                   </td>
                 </tr>
