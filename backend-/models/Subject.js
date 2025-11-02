@@ -1,9 +1,31 @@
+// models/Subject.js
 const mongoose = require('mongoose');
+
+const subjectTypesList = [
+  'Math',
+  'Science',
+  'Social Sciences',
+  'English',
+  'MAPEH',
+  'Computer Science',
+  'Filipino',
+  'Reading',
+  'TLE',
+  'Values',
+  'Other' // Added 'Other' as a fallback
+];
 
 const subjectSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     code: { type: String, trim: true },
+    // UPDATED: Changed to an enum with your specified list
+    subjectType: {
+      type: String,
+      enum: subjectTypesList,
+      default: 'Other',
+      required: true,
+    },
     description: { type: String }, // Explicitly optional
     teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Optional until assigned
 
@@ -32,7 +54,8 @@ const subjectSchema = new mongoose.Schema(
 // Indexes for performance and uniqueness
 subjectSchema.index({ teacher: 1 }); // Quick teacher subjects
 subjectSchema.index({ gradeLevel: 1, academicYear: 1 }); // Filter by level/year
-subjectSchema.index({ name: 1, gradeLevel: 1, academicYear: 1 }, { unique: true }); // No duplicate subjects per level/year
+// UPDATED: Unique index now includes subjectType
+subjectSchema.index({ name: 1, gradeLevel: 1, academicYear: 1, subjectType: 1 }, { unique: true }); // No duplicate subjects per level/year
 
 // Optional: Static method for enrolling students (helps avoid array bloat)
 subjectSchema.statics.enrollStudent = async function(subjectId, studentId) {
@@ -72,5 +95,7 @@ subjectSchema.statics.unenrollStudent = async function(subjectId, studentId) {
     { new: true }
   ).populate('students');
 };
+
+subjectSchema.statics.subjectTypes = subjectTypesList;
 
 module.exports = mongoose.model('Subject', subjectSchema);

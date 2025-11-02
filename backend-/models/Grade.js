@@ -115,17 +115,36 @@ gradeSchema.pre('save', function (next) {  // Removed 'async' as no awaits; add 
   next();
 });
 
-// FIXED: Static method for progress comparison (restructured pipeline to avoid self-reference errors; works with String academicYear)
+// FIXED: Static method for progress comparison with proper subjectType handling
+// In models/Grade.js - FIXED getProgressReport method
 gradeSchema.statics.getProgressReport = async function(studentId, subjectId = null) {
-  const match = { student: studentId };
-  if (subjectId) match.subject = subjectId;
+  const match = { student: new mongoose.Types.ObjectId(studentId) };
+  if (subjectId) match.subject = new mongoose.Types.ObjectId(subjectId);
 
+  console.log('🔍 Running progress report for student:', studentId);
+  
   const pipeline = [
     { $match: match },
-    { $sort: { subject: 1, academicYear: 1 } },
+    { 
+      $lookup: {
+        from: 'subjects',
+        localField: 'subject',
+        foreignField: '_id',
+        as: 'subjectDetails'
+      }
+    },
+    {
+      $unwind: '$subjectDetails'
+    },
+    {
+      $sort: { 'subjectDetails.name': 1, academicYear: 1 }
+    },
     {
       $group: {
         _id: '$subject',
+        subjectName: { $first: '$subjectDetails.name' },
+        subjectType: { $first: '$subjectDetails.subjectType' }, // ADD THIS LINE
+        gradeLevel: { $first: '$subjectDetails.gradeLevel' }, // Also include gradeLevel if needed
         grades: {
           $push: {
             academicYear: '$academicYear',
@@ -141,66 +160,91 @@ gradeSchema.statics.getProgressReport = async function(studentId, subjectId = nu
         }
       }
     },
-    { $project: { _id: 0, subject: '$_id', grades: 1 } }
+    {
+      $project: {
+        _id: 0,
+        subjectId: '$_id',
+        subjectName: 1,
+        subjectType: 1, // INCLUDE IN PROJECTION
+        gradeLevel: 1,
+        grades: 1
+      }
+    }
   ];
 
-  const aggregates = await this.aggregate(pipeline);
+  console.log('📊 Aggregation pipeline:', JSON.stringify(pipeline, null, 2));
+  
+  try {
+    const aggregates = await this.aggregate(pipeline);
+    console.log('✅ Aggregation result count:', aggregates.length);
+    console.log('📋 Aggregation results with subjectTypes:', aggregates.map(agg => ({
+      subjectName: agg.subjectName,
+      subjectType: agg.subjectType,
+      gradeCount: agg.grades.length
+    })));
 
-  const computeLetter = (grade) => {
-    if (grade == null) return null;
-    if (grade >= 90) return 'A';
-    if (grade >= 85) return 'B';
-    if (grade >= 80) return 'C';
-    if (grade >= 75) return 'D';
-    return 'F';
-  };
+    const computeLetter = (grade) => {
+      if (grade == null) return null;
+      if (grade >= 90) return 'A';
+      if (grade >= 85) return 'B';
+      if (grade >= 80) return 'C';
+      if (grade >= 75) return 'D';
+      return 'F';
+    };
 
-  return aggregates.map((item) => {
-    const progress = [];
-    let previousFinal = null;
+    return aggregates.map((item) => {
+      const progress = [];
+      let previousFinal = null;
 
-    item.grades.forEach((entry) => {
-      const quartersRaw = entry.quarterTotals || {};
-      const quarterTotals = {
-        q1: quartersRaw.q1 != null ? Number(quartersRaw.q1.toFixed ? quartersRaw.q1.toFixed(1) : quartersRaw.q1) : (typeof quartersRaw.q1 === 'number' ? Number(quartersRaw.q1.toFixed(1)) : null),
-        q2: quartersRaw.q2 != null ? Number(quartersRaw.q2.toFixed ? quartersRaw.q2.toFixed(1) : quartersRaw.q2) : (typeof quartersRaw.q2 === 'number' ? Number(quartersRaw.q2.toFixed(1)) : null),
-        q3: quartersRaw.q3 != null ? Number(quartersRaw.q3.toFixed ? quartersRaw.q3.toFixed(1) : quartersRaw.q3) : (typeof quartersRaw.q3 === 'number' ? Number(quartersRaw.q3.toFixed(1)) : null),
-        q4: quartersRaw.q4 != null ? Number(quartersRaw.q4.toFixed ? quartersRaw.q4.toFixed(1) : quartersRaw.q4) : (typeof quartersRaw.q4 === 'number' ? Number(quartersRaw.q4.toFixed(1)) : null),
-      };
+      item.grades.forEach((entry) => {
+        const quartersRaw = entry.quarterTotals || {};
+        const quarterTotals = {
+          q1: quartersRaw.q1 != null ? Number(quartersRaw.q1.toFixed ? quartersRaw.q1.toFixed(1) : quartersRaw.q1) : (typeof quartersRaw.q1 === 'number' ? Number(quartersRaw.q1.toFixed(1)) : null),
+          q2: quartersRaw.q2 != null ? Number(quartersRaw.q2.toFixed ? quartersRaw.q2.toFixed(1) : quartersRaw.q2) : (typeof quartersRaw.q2 === 'number' ? Number(quartersRaw.q2.toFixed(1)) : null),
+          q3: quartersRaw.q3 != null ? Number(quartersRaw.q3.toFixed ? quartersRaw.q3.toFixed(1) : quartersRaw.q3) : (typeof quartersRaw.q3 === 'number' ? Number(quartersRaw.q3.toFixed(1)) : null),
+          q4: quartersRaw.q4 != null ? Number(quartersRaw.q4.toFixed ? quartersRaw.q4.toFixed(1) : quartersRaw.q4) : (typeof quartersRaw.q4 === 'number' ? Number(quartersRaw.q4.toFixed(1)) : null),
+        };
 
-      const quarterValues = Object.values(quarterTotals).filter((val) => typeof val === 'number' && !Number.isNaN(val));
-      let final = typeof entry.finalGrade === 'number' ? entry.finalGrade : null;
-      if (final == null && quarterValues.length > 0) {
-        const avg = quarterValues.reduce((sum, val) => sum + val, 0) / quarterValues.length;
-        final = Math.round(avg * 10) / 10;
-      }
-      const finalRounded = final != null ? Number(final.toFixed(1)) : null;
+        const quarterValues = Object.values(quarterTotals).filter((val) => typeof val === 'number' && !Number.isNaN(val));
+        let final = typeof entry.finalGrade === 'number' ? entry.finalGrade : null;
+        if (final == null && quarterValues.length > 0) {
+          const avg = quarterValues.reduce((sum, val) => sum + val, 0) / quarterValues.length;
+          final = Math.round(avg * 10) / 10;
+        }
+        const finalRounded = final != null ? Number(final.toFixed(1)) : null;
 
-      let delta = null;
-      if (finalRounded != null && previousFinal != null) {
-        delta = Number((finalRounded - previousFinal).toFixed(1));
-      }
+        let delta = null;
+        if (finalRounded != null && previousFinal != null) {
+          delta = Number((finalRounded - previousFinal).toFixed(1));
+        }
 
-      const letter = entry.letterGrade || computeLetter(finalRounded);
+        const letter = entry.letterGrade || computeLetter(finalRounded);
 
-      progress.push({
-        academicYear: entry.academicYear,
-        finalGrade: finalRounded,
-        letterGrade: letter,
-        quarterTotals,
-        delta,
+        progress.push({
+          academicYear: entry.academicYear,
+          finalGrade: finalRounded,
+          letterGrade: letter,
+          quarterTotals,
+          delta,
+        });
+
+        if (finalRounded != null) {
+          previousFinal = finalRounded;
+        }
       });
 
-      if (finalRounded != null) {
-        previousFinal = finalRounded;
-      }
+      return {
+        subjectId: item.subjectId,
+        subjectName: item.subjectName || 'Unknown Subject',
+        subjectType: item.subjectType || 'Other', // INCLUDE SUBJECT TYPE
+        gradeLevel: item.gradeLevel,
+        progress,
+      };
     });
-
-    return {
-      subject: item.subject,
-      progress,
-    };
-  });
+  } catch (error) {
+    console.error('❌ Error in getProgressReport:', error);
+    throw error;
+  }
 };
 
 module.exports = mongoose.model('Grade', gradeSchema);

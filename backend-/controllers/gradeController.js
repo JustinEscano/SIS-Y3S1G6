@@ -717,29 +717,53 @@ const importGrades = asyncHandler(async (req, res) => {
 });
 
 // GET /api/grades/student/:studentId/progress
+// In controllers/gradeController.js - FIXED getStudentGradeProgress
 const getStudentGradeProgress = asyncHandler(async (req, res) => {
-    // ... (Keep existing logic) ...
-     const { studentId } = req.params;
+  const { studentId } = req.params;
 
-    if (req.role === 'student' && req.user.id !== studentId) { return res.status(403).json({ success: false, error: 'Access denied: You can only view your own progress.' }); }
-    if (!hasTeacherPrivileges(req) && req.role !== 'student') { return res.status(403).json({ success: false, error: 'Access denied' }); }
+  if (req.role === 'student' && req.user.id !== studentId) {
+    return res.status(403).json({ success: false, error: 'Access denied: You can only view your own progress.' });
+  }
+  if (!hasTeacherPrivileges(req) && req.role !== 'student') {
+    return res.status(403).json({ success: false, error: 'Access denied' });
+  }
 
-    try {
-      const progressData = await Grade.getProgressReport(studentId);
-      const populatedData = await Promise.all(
-        progressData.map(async (item) => {
-          const subject = await Subject.findById(item.subject).select('name gradeLevel');
-          return {
-            subjectId: item.subject, subjectName: subject ? `${subject.name} (G${subject.gradeLevel || 'N/A'})` : 'Unknown Subject',
-            progress: item.progress.map(p => ({ ...p, delta: p.delta !== null && p.delta !== undefined ? parseFloat(p.delta.toFixed(1)) : null }))
-          };
-        })
-      );
-      res.status(200).json({ success: true, data: populatedData });
-    } catch (err) {
-      console.error(`Error getting grade progress for student ${studentId}:`, err);
-      res.status(500).json({ success: false, error: 'Server error while fetching grade progress' });
-    }
+  try {
+    console.log('📊 Fetching grade progress for student:', studentId);
+    const progressData = await Grade.getProgressReport(studentId);
+    
+    console.log('✅ Raw progress data from model:', progressData.map(item => ({
+      subjectId: item.subjectId,
+      subjectName: item.subjectName,
+      subjectType: item.subjectType,
+      progressCount: item.progress.length
+    })));
+
+    // No need for additional population - the aggregation already includes subject details
+    const responseData = progressData.map(item => ({
+      subjectId: item.subjectId,
+      subjectName: item.subjectName,
+      subjectType: item.subjectType || 'Other',
+      gradeLevel: item.gradeLevel,
+      progress: item.progress.map(p => ({
+        ...p,
+        delta: p.delta !== null && p.delta !== undefined ? parseFloat(p.delta.toFixed(1)) : null
+      }))
+    }));
+
+    console.log('🎯 Final response data:', responseData);
+
+    res.status(200).json({
+      success: true,
+      data: responseData
+    });
+  } catch (err) {
+    console.error(`❌ Error getting grade progress for student ${studentId}:`, err);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while fetching grade progress'
+    });
+  }
 });
 
 // --- Exports ---

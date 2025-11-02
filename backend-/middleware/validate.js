@@ -24,7 +24,6 @@ const registerValidation = [
     .matches(/[^A-Za-z0-9]/)
     .withMessage('Password must include special character'),
 
-  // Fixed: .optional() does NOT support .withMessage()
   body('inviteCode').optional(),
 ];
 
@@ -58,17 +57,14 @@ const handleValidationErrors = (req, res, next) => {
 
 const validateRequest = (schema) => {
   return (req, res, next) => {
-    // Debug logs (optional — remove in production if needed)
     console.log('Validation middleware - Incoming req.body:', JSON.stringify(req.body, null, 2));
     console.log('req.body type:', typeof req.body);
-    console.log('Has students key?', 'students' in req.body);
-    if ('students' in req.body) {
-      console.log('Students value:', req.body.students);
-      console.log('Students length:', req.body.students ? req.body.students.length : 'N/A');
-      console.log('Is students array with min 1?', Array.isArray(req.body.students) && req.body.students.length >= 1);
+    console.log('Has subjectType key?', 'subjectType' in req.body);
+    if ('subjectType' in req.body) {
+      console.log('SubjectType value:', req.body.subjectType);
     }
+    console.log('Has students key?', 'students' in req.body);
     console.log('Has archived key?', 'archived' in req.body);
-    console.log('Archived value:', req.body.archived);
 
     const { error, value } = schema.validate(req.body, {
       abortEarly: false,
@@ -77,8 +73,7 @@ const validateRequest = (schema) => {
 
     console.log('Validation result - Error?', !!error);
     if (error) {
-      console.log('Full Joi error object:', JSON.stringify(error, null, 2));
-      console.log('Error details array:', error.details.map(d => ({ path: d.path, message: d.message })));
+      console.log('Validation errors:', error.details.map(d => ({ path: d.path, message: d.message })));
     } else {
       console.log('Validated value:', JSON.stringify(value, null, 2));
     }
@@ -88,7 +83,6 @@ const validateRequest = (schema) => {
         field: detail.path.join('.'),
         message: detail.message.replace(/['"]/g, ''),
       }));
-      console.error('Joi Validation Error:', errors);
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
@@ -96,40 +90,80 @@ const validateRequest = (schema) => {
       });
     }
 
+    req.validatedData = value;
     next();
   };
 };
 
 // ==================== JOI SCHEMAS ====================
 
+// UPDATED: Added subjectType to both schemas
+const SUBJECT_TYPES = [
+  'Math', 'Science', 'Social Sciences', 'English', 'MAPEH',
+  'Computer Science', 'Filipino', 'Reading', 'TLE', 'Values', 'Other'
+];
+
 const createSubjectSchema = Joi.object({
-  name: Joi.string().min(1).max(100).required(),
+  name: Joi.string().min(1).max(100).required()
+    .messages({
+      'string.empty': 'Subject name is required',
+      'string.min': 'Subject name must be at least 1 character',
+      'string.max': 'Subject name must not exceed 100 characters'
+    }),
   code: Joi.string().max(50).allow('').optional(),
-  description: Joi.string().max(500).allow('').optional(),
-  gradeLevel: Joi.number().integer().min(7).max(10).required(),
+  description: Joi.string().max(500).allow('').optional()
+    .messages({
+      'string.max': 'Description must not exceed 500 characters'
+    }),
+  // NEW: Added subjectType validation
+  subjectType: Joi.string().valid(...SUBJECT_TYPES).default('Other')
+    .messages({
+      'any.only': `Subject type must be one of: ${SUBJECT_TYPES.join(', ')}`
+    }),
+  gradeLevel: Joi.number().integer().min(7).max(10).required()
+    .messages({
+      'number.base': 'Grade level must be a number',
+      'number.min': 'Grade level must be at least 7',
+      'number.max': 'Grade level must be at most 10',
+      'any.required': 'Grade level is required'
+    }),
   academicYear: Joi.string()
     .pattern(/^\d{4}-\d{4}$/)
     .required()
-    .messages({ 'string.pattern.base': 'Academic Year must be in YYYY-YYYY format (e.g., 2024-2025)' }),
+    .messages({ 
+      'string.pattern.base': 'Academic Year must be in YYYY-YYYY format (e.g., 2024-2025)',
+      'any.required': 'Academic Year is required'
+    }),
   teacher: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).optional(),
   students: Joi.array()
     .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
-    .optional(),
+    .optional()
+    .messages({
+      'array.base': 'Students must be an array',
+      'string.pattern.base': 'Each student ID must be a valid MongoDB ObjectId'
+    }),
 });
 
-console.log('Loading updateSubjectSchema...');
 const updateSubjectSchema = Joi.object({
-  name: Joi.string().min(1).max(100).optional().messages({
-    'string.min': 'Name must be at least 1 character',
-    'string.max': 'Name must not exceed 100 characters',
-  }),
+  name: Joi.string().min(1).max(100).optional()
+    .messages({
+      'string.min': 'Name must be at least 1 character',
+      'string.max': 'Name must not exceed 100 characters',
+    }),
   code: Joi.string().max(50).allow('').optional(),
-  description: Joi.string().max(500).allow('').optional().messages({
-    'string.max': 'Description must not exceed 500 characters',
-  }),
-  archived: Joi.boolean().optional().messages({
-    'boolean.base': 'Archived must be a boolean',
-  }),
+  description: Joi.string().max(500).allow('').optional()
+    .messages({
+      'string.max': 'Description must not exceed 500 characters',
+    }),
+  // NEW: Added subjectType validation for updates
+  subjectType: Joi.string().valid(...SUBJECT_TYPES).optional()
+    .messages({
+      'any.only': `Subject type must be one of: ${SUBJECT_TYPES.join(', ')}`
+    }),
+  archived: Joi.boolean().optional()
+    .messages({
+      'boolean.base': 'Archived must be a boolean',
+    }),
   students: Joi.alternatives().try(
     null,
     Joi.array().length(0),
@@ -149,14 +183,20 @@ const updateSubjectSchema = Joi.object({
     }),
     otherwise: (schema) => schema.optional(),
   }),
-  gradeLevel: Joi.number().integer().min(7).max(10).optional(),
+  gradeLevel: Joi.number().integer().min(7).max(10).optional()
+    .messages({
+      'number.base': 'Grade level must be a number',
+      'number.min': 'Grade level must be at least 7',
+      'number.max': 'Grade level must be at most 10'
+    }),
   academicYear: Joi.string()
     .pattern(/^\d{4}-\d{4}$/)
     .optional()
-    .messages({ 'string.pattern.base': 'Academic Year must be in YYYY-YYYY format (e.g., 2024-2025)' }),
+    .messages({ 
+      'string.pattern.base': 'Academic Year must be in YYYY-YYYY format (e.g., 2024-2025)' 
+    }),
   teacher: Joi.string().allow('').pattern(/^[0-9a-fA-F]{24}$/).optional(),
 });
-console.log('updateSubjectSchema loaded successfully.');
 
 // ==================== EXPORTS ====================
 
@@ -167,4 +207,5 @@ module.exports = {
   createSubjectSchema,
   updateSubjectSchema,
   validateRequest,
+  SUBJECT_TYPES // Export for use in controllers if needed
 };

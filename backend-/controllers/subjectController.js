@@ -1,14 +1,11 @@
-// controllers/subjectController.js (Updated: Added teacher notification on subject assignment, with self-notification skip)
 const mongoose = require('mongoose');
 const Subject = require('../models/Subject');
 const Student = require('../models/Student');
 const User = require('../models/User');
 const Grade = require('../models/Grade');
 const Attendance = require('../models/Attendance');
-const Notification = require('../models/Notifications'); // Direct model import
+const Notification = require('../models/Notifications');
 const asyncHandler = require('express-async-handler');
-const Joi = require('joi');
-const { createSubjectSchema, updateSubjectSchema } = require('../middleware/validate');
 
 const TEACHER_POPULATE = '_id name email department';
 const STUDENT_POPULATE = '_id name email section lrn parentName';
@@ -40,7 +37,7 @@ const assignTeacher = async (req, subject) => {
   }
 };
 
-// Helper: Create enrollment notification (Direct model usage)
+// Helper: Create enrollment notification
 const createEnrollmentNotification = async (studentId, subjectId) => {
   if (!subjectId) {
     console.warn('Skipping enrollment notification: Subject ID not provided');
@@ -62,7 +59,7 @@ const createEnrollmentNotification = async (studentId, subjectId) => {
   }
 };
 
-// UPDATED: Helper: Create teacher assignment notification (with self-skip check)
+// Helper: Create teacher assignment notification (with self-skip check)
 const createTeacherAssignmentNotification = async (teacherId, subject, creatorId = null) => {
   if (!teacherId || !subject) {
     console.warn('Skipping teacher assignment notification: Missing teacherId or subject');
@@ -78,13 +75,13 @@ const createTeacherAssignmentNotification = async (teacherId, subject, creatorId
   try {
     const notification = new Notification({
       recipient: teacherId,
-      type: 'other', // Use 'other' or update schema enum to include 'subject_assignment'
+      type: 'other',
       title: 'New Subject Assignment',
       message: `You have been assigned to teach "${subject.name}" (Grade ${subject.gradeLevel}, ${subject.academicYear}).`,
       subject: subject._id
     });
     await notification.save();
-    console.log(`✅ Teacher assignment notification created for ${teacherId} - Subject: ${subject.name}`);
+    console.log(`✅ Teacher assignment notification created for ${teacherId}`);
   } catch (error) {
     console.error('Failed to create teacher assignment notification:', error);
   }
@@ -169,7 +166,7 @@ const handleRemoveStudent = async (subject, studentId) => {
   return deletedAttendance.deletedCount;
 };
 
-// @desc    Get subjects for the authenticated teacher (non-archived) - ALL teachers see ALL subjects
+// @desc    Get subjects for the authenticated teacher (non-archived)
 const getTeacherSubjects = asyncHandler(async (req, res) => {
   if (!hasTeacherPrivileges(req)) {
     return res.status(403).json({ success: false, error: 'Access denied - Teachers only' });
@@ -282,7 +279,8 @@ const getSubjectStudents = asyncHandler(async (req, res) => {
         name: subject.name, 
         description: subject.description, 
         gradeLevel: subject.gradeLevel, 
-        academicYear: subject.academicYear 
+        academicYear: subject.academicYear,
+        subjectType: subject.subjectType
       },
       students
     }
@@ -291,16 +289,7 @@ const getSubjectStudents = asyncHandler(async (req, res) => {
 
 // @desc    Create a new subject
 const createSubject = asyncHandler(async (req, res) => {
-  const { error } = createSubjectSchema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ success: false, error: error.details[0].message });
-  }
-
-  const { name, code, description, gradeLevel, academicYear, students: studentIds = [] } = req.body;
-
-  if (!academicYear || !ACADEMIC_YEAR_REGEX.test(academicYear)) {
-    return res.status(400).json({ success: false, error: 'Academic Year must be in YYYY-YYYY format (e.g., 2024-2025)' });
-  }
+  const { name, code, description, subjectType, gradeLevel, academicYear, students: studentIds = [] } = req.body;
 
   if (studentIds.length > 0) {
     const validStudents = await Student.find({ _id: { $in: studentIds } });
@@ -317,21 +306,21 @@ const createSubject = asyncHandler(async (req, res) => {
     name,
     description,
     code,
+    subjectType: subjectType || 'Other', // Default to 'Other' if not provided
     students: studentIds,
     gradeLevel,
     academicYear
   });
 
   await assignTeacher(req, subject);
-
   await subject.save();
 
-  // Send enrollment notifications with subject ID for initial students (removed redundant pre-save loop)
+  // Send enrollment notifications for initial students
   for (const studentId of studentIds) {
     await createEnrollmentNotification(studentId, subject._id);
   }
 
-  // UPDATED: Notify assigned teacher if one was assigned (skips self if creator is the teacher)
+  // Notify assigned teacher if one was assigned
   if (subject.teacher) {
     await createTeacherAssignmentNotification(subject.teacher, subject, req.user.id);
   }
@@ -343,11 +332,6 @@ const createSubject = asyncHandler(async (req, res) => {
 
 // @desc    Update subject details - ANY teacher can update ANY subject
 const updateSubject = asyncHandler(async (req, res) => {
-  const { error } = updateSubjectSchema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ success: false, error: error.details[0].message });
-  }
-
   let subject = await Subject.findById(req.params.id);
   if (!subject) {
     return res.status(404).json({ success: false, error: 'Subject not found' });
@@ -357,6 +341,15 @@ const updateSubject = asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, error: 'Access denied - Teachers only' });
   }
 
+  // Update basic fields including subjectType
+  const updateFields = ['name', 'description', 'code', 'subjectType', 'gradeLevel', 'archived'];
+  updateFields.forEach(field => {
+    if (req.body[field] !== undefined) {
+      subject[field] = req.body[field];
+    }
+  });
+
+  // Validate academic year if provided
   if (req.body.academicYear !== undefined) {
     if (!ACADEMIC_YEAR_REGEX.test(req.body.academicYear)) {
       return res.status(400).json({ success: false, error: 'Academic Year must be in YYYY-YYYY format (e.g., 2024-2025)' });
@@ -364,7 +357,7 @@ const updateSubject = asyncHandler(async (req, res) => {
     subject.academicYear = req.body.academicYear;
   }
 
-  let newEnrollments = []; // Track new students for notifications
+  let newEnrollments = [];
 
   // Handle students
   if (req.body.students) {
@@ -378,7 +371,7 @@ const updateSubject = asyncHandler(async (req, res) => {
       for (const studentId of req.body.students) {
         if (!subject.students.some(s => s.toString() === studentId)) {
           await handleAddStudent(subject, studentId, req);
-          newEnrollments.push(studentId); // Already notified in handleAddStudent
+          newEnrollments.push(studentId);
         }
       }
 
@@ -392,32 +385,24 @@ const updateSubject = asyncHandler(async (req, res) => {
     }
   }
 
-  // Update other fields
-  const updateFields = ['name', 'description', 'code', 'gradeLevel', 'archived'];
-  updateFields.forEach(field => {
-    if (req.body[field] !== undefined) {
-      subject[field] = req.body[field];
-    }
-  });
-
+  // Handle teacher assignment
   if (Object.prototype.hasOwnProperty.call(req.body, 'teacher')) {
     const oldTeacher = subject.teacher;
     subject.teacher = req.body.teacher || undefined;
 
-    // UPDATED: If teacher was changed, notify the new teacher (skips self if creator is the new teacher)
+    // If teacher was changed, notify the new teacher
     if (subject.teacher && subject.teacher.toString() !== oldTeacher?.toString()) {
       await createTeacherAssignmentNotification(subject.teacher, subject, req.user.id);
     }
   }
 
   await subject.save();
-
   const populatedSubject = await populateSubject(subject);
 
   res.status(200).json({ success: true, data: populatedSubject });
 });
 
-// @desc    Add a single student to a subject - ANY teacher can add students to ANY subject
+// @desc    Add a single student to a subject
 const addStudentToSubject = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { studentId } = req.body;
@@ -457,7 +442,7 @@ const addStudentToSubject = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Remove a single student from a subject - ANY teacher can remove students from ANY subject
+// @desc    Remove a single student from a subject
 const removeStudentFromSubject = asyncHandler(async (req, res) => {
   const { id: subjectId, studentId } = req.params;
 
@@ -500,7 +485,7 @@ const removeStudentFromSubject = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Get ARCHIVED subjects for the authenticated teacher - ALL teachers see ALL archived subjects
+// @desc    Get ARCHIVED subjects for the authenticated teacher
 const getTeacherArchivedSubjects = asyncHandler(async (req, res) => {
   if (!hasTeacherPrivileges(req)) {
     return res.status(403).json({ success: false, error: 'Access denied - Teachers only' });

@@ -1,4 +1,4 @@
-// services/studentService.js (Fully refactored: Consistent logging, added token param, improved error objects)
+// services/studentService.js
 import AppService from "../appService";
 
 // 📋 Get all students
@@ -74,11 +74,13 @@ const deleteStudent = async (id, token) => {
   }
 };
 
-const updateOwnProfile = async (payload) => {
+// 👤 Update own profile
+const updateOwnProfile = async (payload, token) => {
   try {
     console.log('🔍 Updating current student profile...');
     console.log('📡 URL:', `/students/profile/me`);
-    const res = await AppService.put('/students/profile/me', payload);
+    console.log('📦 Payload:', payload);
+    const res = await AppService.put('/students/profile/me', payload, token);
     console.log('✅ Success:', res.status, res.data);
     return res.data;
   } catch (error) {
